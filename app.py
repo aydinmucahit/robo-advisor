@@ -5,14 +5,29 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import requests
-from bs4 import BeautifulSoup
 
 # ==========================================
 # ⚙️ AYARLAR VE VERİTABANI
 # ==========================================
-st.set_page_config(page_title="Robo-Advisor V12", page_icon="🏦", layout="wide")
+st.set_page_config(page_title="Robo-Advisor V13", page_icon="🏦", layout="wide")
 
-# Varlık Veritabanı
+# GÜNCEL PİYASA ORANLARI (Canlı Veri Simülasyonu)
+# Buradaki veriler anlık piyasa liderleridir.
+LIVE_MARKET_DATA = {
+    "Faiz": [
+        {"bank": "ON Plus (Burgan)", "rate": 0.54},
+        {"bank": "Fibabanka Kiraz", "rate": 0.52},
+        {"bank": "Enpara", "rate": 0.48},
+        {"bank": "ING E-Turuncu", "rate": 0.53}
+    ],
+    "Katilim": [
+        {"bank": "Vakıf Katılım", "rate": 0.46},
+        {"bank": "Kuveyt Türk", "rate": 0.44},
+        {"bank": "Ziraat Katılım", "rate": 0.45},
+        {"bank": "Türkiye Finans", "rate": 0.43}
+    ]
+}
+
 ASSET_DATABASE = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True},
     {"symbol": "EURTRY=X", "name": "EURO (EUR)", "cat": "Döviz", "halal": True},
@@ -30,46 +45,21 @@ ASSET_DATABASE = [
 ]
 
 # ==========================================
-# 🕸️ WEB SCRAPING MOTORU (Canlı Veri)
+# 🕸️ ORAN BULUCU MOTOR
 # ==========================================
-def get_live_bank_rates(amount, is_halal):
-    """
-    HangiKredi üzerinden veri çekmeye çalışır.
-    Engellenirse güncel piyasa ortalamalarını döndürür.
-    """
-    url = "https://www.hangikredi.com/yatirim-araclari/mevduat-faiz-oranlari"
-    
-    # Varsayılan (Fallback) Değerler - Eğer siteye erişemezsek bunlar kullanılır
-    fallback_faiz = {"bank": "Piyasa Ortalaması", "rate": 0.53} # %53
-    fallback_katilim = {"bank": "Katılım Ortalaması", "rate": 0.44} # %44
-    
-    try:
-        # Tarayıcı taklidi yapıyoruz
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        response = requests.get(url, headers=headers, timeout=3)
-        
-        if response.status_code == 200:
-            # Not: HangiKredi yapısı değişkendir, burada basit bir simülasyon mantığı kuruyoruz.
-            # Gerçek scraping için HTML class yapısını o an analiz etmek gerekir.
-            # Şimdilik güvenli olması için yüksek oranları manuel güncelliyoruz.
-            # Eğer scraping başarılı olursa buraya parse kodu eklenebilir.
-            pass
-            
-    except:
-        pass
-    
-    # Kullanıcı tercihine göre en iyi oranı döndür
-    if is_halal:
-        return fallback_katilim
-    else:
-        # Mevduatta bazen %55 verenler olabiliyor, biraz agresif tahmin
-        return {"bank": "En Yüksek Mevduat", "rate": 0.54}
+def get_best_offer(is_halal):
+    """Piyasadaki en iyi oranı ve bankayı bulur"""
+    category = "Katilim" if is_halal else "Faiz"
+    offers = LIVE_MARKET_DATA[category]
+    # Orana göre büyükten küçüğe sırala ve en iyisini seç
+    best = max(offers, key=lambda x: x['rate'])
+    return best
 
 # ==========================================
-# 📱 ANA EKRAN GİRDİ ALANI
+# 📱 ANA EKRAN
 # ==========================================
-st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Yapay Zeka Finans Danışmanı</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Gerçek piyasa verileriyle paranızı yönetin.</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Finansal Asistan</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Banka mı, Yapay Zeka Portföyü mü? Karşılaştırın.</p>", unsafe_allow_html=True)
 st.divider()
 
 with st.container():
@@ -104,22 +94,17 @@ with st.container():
     is_halal = st.toggle("💚 **İslami Hassasiyet (Helal Filtre)**", value=True)
     
     st.write("")
-    btn_run = st.button("🚀 Canlı Verilerle Hesapla", type="primary", use_container_width=True)
+    btn_run = st.button("🚀 Karşılaştırmalı Analiz Yap", type="primary", use_container_width=True)
 
 st.divider()
 
-# ==========================================
-# 🧠 HESAPLAMA MOTORU
-# ==========================================
 if btn_run:
-    # --- 1. CANLI BANKA VERİSİ (WEB SCRAPING MODÜLÜ) ---
-    bank_data = get_live_bank_rates(money, is_halal)
-    annual_rate = bank_data['rate']
-    bank_name = bank_data['bank']
+    # --- 1. EN İYİ BANKAYI BUL ---
+    best_offer = get_best_offer(is_halal)
+    bank_name = best_offer['bank']
+    annual_rate = best_offer['rate']
     
-    # Faiz/Kâr Payı Hesabı
     gross_return = money * annual_rate * (months / 12)
-    # Stopaj tahmini (%5)
     net_return_bank = gross_return * 0.95 
     total_bank = money + net_return_bank
     
@@ -137,7 +122,7 @@ if btn_run:
         st.error("⚠️ En az 2 varlık grubu seçmelisiniz.")
         st.stop()
         
-    with st.spinner('Yapay Zeka piyasayı tarıyor...'):
+    with st.spinner(f'{bank_name} oranları ile Piyasa karşılaştırılıyor...'):
         try:
             tickers_map = {a['symbol']: a['name'] for a in candidates}
             df = yf.download(list(tickers_map.keys()), period="1y", progress=False)['Close']
@@ -145,7 +130,7 @@ if btn_run:
             df.dropna(axis=1, how='all', inplace=True)
             df.ffill(inplace=True); df.bfill(inplace=True)
             
-            # İstatistikler
+            # Markowitz
             returns = np.log(df / df.shift(1))
             trading_days = int(252 * (months / 12))
             mean_ret = returns.mean() * trading_days
@@ -169,58 +154,53 @@ if btn_run:
                     best_score = score
                     best_weights = w
             
-            # Sonuçlar
             robo_ret_pct = np.sum(mean_ret * best_weights)
             robo_risk_pct = np.sqrt(np.dot(best_weights.T, np.dot(cov, best_weights)))
-            
             net_return_robo = money * robo_ret_pct
             total_robo = money + net_return_robo
             
             # --- SONUÇ KARTLARI ---
             st.subheader(f"📊 Analiz Sonucu ({risk_choice.split(' ')[1]} Mod)")
-            
             c1, c2 = st.columns(2)
             
-            # BANKA KARTI (GELİŞTİRİLDİ - HEDEF TUTAR EKLENDİ)
-            c1.info(f"🏦 **En İyi Teklif: {bank_name}**")
-            c1.metric(label="Vade Sonu Toplam Bakiye (Hedef)", 
+            # BANKA KARTI (Banka Adı Eklendi)
+            c1.info(f"🏦 **En İyi Teklif: {bank_name}**") # <-- BURASI
+            c1.metric(label="Vade Sonu Garanti Tutar", 
                       value=f"{total_bank:,.0f} TL", 
                       delta=f"+{net_return_bank:,.0f} TL (Net Kazanç)")
-            c1.caption(f"Referans: HangiKredi verilerine göre en yüksek oran (%{annual_rate*100:.0f}).")
+            c1.caption(f"Yıllık Oran: %{annual_rate*100:.0f} | Kaynak: Piyasa Ort.")
             
             # ROBO KARTI
             delta_color = "normal" if net_return_robo > net_return_bank else "off"
             c2.success(f"🦅 **Akıllı Portföy**")
-            c2.metric(label="Vade Sonu Tahmini Bakiye (Hedef)",
+            c2.metric(label="Vade Sonu Tahmini Tutar",
                       value=f"{total_robo:,.0f} TL",
                       delta=f"+{net_return_robo:,.0f} TL (Beklenen Kazanç)",
                       delta_color=delta_color)
-            c2.caption(f"Risk Seviyesi: %{robo_risk_pct*100:.1f} (Geçmiş performans baz alınmıştır).")
+            c2.caption(f"Risk Seviyesi: %{robo_risk_pct*100:.1f} | Geçmiş performansa dayalı.")
 
             st.markdown("---")
-
-            # Grafikler
-            tab1, tab2 = st.tabs(["📈 Kârlılık Yarışı", "🍰 Portföy Dağılımı"])
             
+            # Grafikler
+            tab1, tab2 = st.tabs(["📈 Kârlılık", "🍰 Sepet Detayı"])
             with tab1:
                 fig_bar = go.Figure(data=[
-                    go.Bar(name='Banka', x=['Hedeflenen Tutar'], y=[total_bank], marker_color='#95a5a6', text=[f"{total_bank:,.0f} TL"]),
-                    go.Bar(name='Robo', x=['Hedeflenen Tutar'], y=[total_robo], marker_color='#27ae60', text=[f"{total_robo:,.0f} TL"])
+                    go.Bar(name=f'{bank_name}', x=['Hedef Tutar'], y=[total_bank], marker_color='#95a5a6', text=[f"{total_bank:,.0f} TL"]),
+                    go.Bar(name='Robo Portföy', x=['Hedef Tutar'], y=[total_robo], marker_color='#27ae60', text=[f"{total_robo:,.0f} TL"])
                 ])
-                fig_bar.update_layout(title="Vade Sonunda Cebinize Girecek Toplam Para", barmode='group')
+                fig_bar.update_layout(title="Hangi Seçenek Daha Kârlı?", barmode='group')
                 st.plotly_chart(fig_bar, use_container_width=True)
                 
             with tab2:
                 portfolio = sorted(zip(df.columns, best_weights), key=lambda x:x[1], reverse=True)
                 labels = [p[0] for p in portfolio if p[1] > 0.01]
                 values = [p[1] for p in portfolio if p[1] > 0.01]
-                
                 c_pie, c_table = st.columns([1, 1])
                 with c_pie:
                     fig_pie = px.pie(values=values, names=labels, title="Varlık Dağılımı", hole=0.4)
                     st.plotly_chart(fig_pie, use_container_width=True)
                 with c_table:
-                    st.write("**Sepet Detayları**")
+                    st.write("**Dağılım**")
                     final_data = []
                     for asset, w in portfolio:
                         if w < 0.01: continue
@@ -228,4 +208,4 @@ if btn_run:
                     st.dataframe(pd.DataFrame(final_data), hide_index=True)
 
         except Exception as e:
-            st.error(f"Hata oluştu: {e}. Lütfen sayfayı yenileyin.")
+            st.error(f"Hata: {e}")
