@@ -11,7 +11,6 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Robo-Advisor Pro V7", page_icon="🦅", layout="wide")
 
 # Güncel Piyasa Oranları (Temsili - Ortalama)
-# Gerçek hayatta burası scraping ile çekilebilir
 BANK_RATES = {
     "Faiz": {"name": "Mevduat Faizi (Ort.)", "rate": 0.48}, # %48 Yıllık
     "Katilim": {"name": "Katılım Kâr Payı (Ort.)", "rate": 0.42} # %42 Yıllık Tahmini
@@ -41,7 +40,7 @@ with st.sidebar:
     # 1. Temel Bilgiler
     money = st.number_input("Yatırım Tutarı (TL)", min_value=1000, value=100000, step=1000, format="%d")
     
-    # 2. Vade Seçimi (YENİ)
+    # 2. Vade Seçimi
     duration_options = {"1 Ay": 1, "3 Ay": 3, "6 Ay": 6, "1 Yıl": 12}
     selected_duration_label = st.selectbox("Vade Seçimi", list(duration_options.keys()), index=3)
     months = duration_options[selected_duration_label]
@@ -84,9 +83,8 @@ if btn_run:
         annual_rate = rate_info["rate"]
         
         # Basit Faiz/Getiri Hesabı: Ana Para * Oran * (Ay / 12)
-        # Stopaj (%5 varsayalım, gerçekte vadeye göre değişir)
         gross_return = money * annual_rate * (months / 12)
-        net_return_bank = gross_return * 0.95 
+        net_return_bank = gross_return * 0.95 # %5 Stopaj tahmini
         total_bank = money + net_return_bank
         
         st.metric(label=f"{rate_info['name']} Getirisi", 
@@ -125,8 +123,7 @@ if btn_run:
             mean_ret_daily = returns.mean()
             cov_matrix = returns.cov()
             
-            # Yıllıklandırma yerine "Dönemselleştirme" (Seçilen Vadeye Göre)
-            # 252 işlem günü * (Ay / 12)
+            # Dönemselleştirme
             trading_days = int(252 * (months / 12))
             
             mean_ret_period = mean_ret_daily * trading_days
@@ -160,47 +157,50 @@ if btn_run:
                 st.metric(label="Optimize Sepet Getirisi (Beklenen)", 
                           value=f"{total_robo:,.2f} TL", 
                           delta=f"+{net_return_robo:,.2f} TL",
-                          delta_color="normal") # Yeşil
+                          delta_color="normal")
                 
                 risk_label = "Düşük" if robo_risk_pct < 0.05 else "Orta" if robo_risk_pct < 0.15 else "Yüksek"
                 st.caption(f"Risk Seviyesi: **{risk_label}** (Volatilite: %{robo_risk_pct*100:.1f})")
 
-    # --- BÖLÜM 3: DETAYLI RAPOR VE GRAFİKLER ---
-    st.markdown("---")
-    
-    # Kıyaslama Grafiği
-    fig_comp = go.Figure()
-    fig_comp.add_trace(go.Bar(
-        x=["Banka / Katılım", "Akıllı Sepet"],
-        y=[net_return_bank, net_return_robo],
-        marker_color=['#95a5a6', '#27ae60'],
-        text=[f"{net_return_bank:,.0f} TL", f"{net_return_robo:,.0f} TL"],
-        textposition='auto'
-    ))
-    fig_comp.update_layout(title="Kazanç Karşılaştırması", yaxis_title="Tahmini Net Getiri (TL)")
-    
-    # Pasta Grafiği
-    portfolio = sorted(zip(df.columns, best_weights), key=lambda x:x[1], reverse=True)
-    labels = [p[0] for p in portfolio if p[1] > 0.01]
-    values = [p[1] for p in portfolio if p[1] > 0.01]
-    
-    fig_pie = px.pie(values=values, names=labels, title="Önerilen Varlık Dağılımı", hole=0.4)
-    
-    # Ekrana Bas
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        st.plotly_chart(fig_comp, use_container_width=True)
-    with c2:
-        st.plotly_chart(fig_pie, use_container_width=True)
-        
-    # Tablo
-    st.subheader("📝 Varlık Dağılım Detayı")
-    final_data = []
-    for asset, w in portfolio:
-        if w < 0.01: continue
-        amt = money * w
-        final_data.append({"Varlık": asset, "Oran": f"%{w*100:.1f}", "Tutar": f"{amt:,.2f} TL"})
-    
-    st.dataframe(pd.DataFrame(final_data), use_container_width=True)
+            # --- BÖLÜM 3: DETAYLI RAPOR VE GRAFİKLER ---
+            st.markdown("---")
+            
+            # Kıyaslama Grafiği
+            fig_comp = go.Figure()
+            fig_comp.add_trace(go.Bar(
+                x=["Banka / Katılım", "Akıllı Sepet"],
+                y=[net_return_bank, net_return_robo],
+                marker_color=['#95a5a6', '#27ae60'],
+                text=[f"{net_return_bank:,.0f} TL", f"{net_return_robo:,.0f} TL"],
+                textposition='auto'
+            ))
+            fig_comp.update_layout(title="Kazanç Karşılaştırması", yaxis_title="Tahmini Net Getiri (TL)")
+            
+            # Pasta Grafiği
+            portfolio = sorted(zip(df.columns, best_weights), key=lambda x:x[1], reverse=True)
+            labels = [p[0] for p in portfolio if p[1] > 0.01]
+            values = [p[1] for p in portfolio if p[1] > 0.01]
+            
+            fig_pie = px.pie(values=values, names=labels, title="Önerilen Varlık Dağılımı", hole=0.4)
+            
+            # Ekrana Bas
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                st.plotly_chart(fig_comp, use_container_width=True)
+            with c2:
+                st.plotly_chart(fig_pie, use_container_width=True)
+                
+            # Tablo
+            st.subheader("📝 Varlık Dağılım Detayı")
+            final_data = []
+            for asset, w in portfolio:
+                if w < 0.01: continue
+                amt = money * w
+                final_data.append({"Varlık": asset, "Oran": f"%{w*100:.1f}", "Tutar": f"{amt:,.2f} TL"})
+            
+            st.dataframe(pd.DataFrame(final_data), use_container_width=True)
 
-    st.warning(f"⚠️ **Yasal Uyarı:** Yukarıdaki veriler geçmiş piyasa hareketlerine ve ortalama banka oranlarına ({annual_rate*100}%) dayanmaktadır. Gelecek getiriyi garanti etmez.")
+            st.warning(f"⚠️ **Yasal Uyarı:** Yukarıdaki veriler geçmiş piyasa hareketlerine ve ortalama banka oranlarına ({annual_rate*100}%) dayanmaktadır. Gelecek getiriyi garanti etmez.")
+        
+        except Exception as e:
+            st.error(f"Hata oluştu: {e}. Lütfen sayfayı yenileyip tekrar deneyin.")
