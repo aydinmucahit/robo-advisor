@@ -10,7 +10,7 @@ from textblob import TextBlob
 # ==========================================
 # ⚙️ AYARLAR
 # ==========================================
-st.set_page_config(page_title="Finans Asistanı V16", page_icon="🏦", layout="wide")
+st.set_page_config(page_title="Finans Asistanı V16.1", page_icon="🏦", layout="wide")
 
 ASSET_DATABASE = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True, "search_term": "USDTRY currency"},
@@ -150,19 +150,18 @@ if btn_run:
             best_score = -float('inf')
             best_weights = []
             
-            # --- DİNAMİK KISIT AYARI (DYNAMIC CONSTRAINT) ---
+            # --- DİNAMİK KISIT AYARI ---
             if "Koruyucu" in risk_choice:
-                max_single_asset_weight = 0.40 # En fazla %40
+                max_single_asset_weight = 0.40 
             elif "Dengeli" in risk_choice:
-                max_single_asset_weight = 0.60 # En fazla %60
+                max_single_asset_weight = 0.60 
             else:
-                max_single_asset_weight = 1.00 # Sınır Yok (%100 olabilir)
+                max_single_asset_weight = 1.00 
 
             for _ in range(num_ports):
                 w = np.random.random(len(df.columns))
                 w /= w.sum()
                 
-                # KURAL: Seçilen moda göre maksimum ağırlığı kontrol et
                 if np.max(w) > max_single_asset_weight: 
                     continue 
                 
@@ -206,6 +205,10 @@ if btn_run:
             
             if use_sentiment:
                 with st.expander("📰 Piyasa Duygu Raporu", expanded=True):
+                    # --- YENİ EKLENEN KISIM: RENK AÇIKLAMALARI ---
+                    st.caption("🟢: Olumlu Haberler (>0.05) | 🔴: Olumsuz Haberler (<-0.05) | ⚪: Nötr/Yatay")
+                    st.divider()
+                    # ---------------------------------------------
                     cols = st.columns(4) 
                     relevant_assets = [k for k in sentiment_scores.keys() if tickers_map[k] in df.columns]
                     for i, sym in enumerate(relevant_assets):
