@@ -3,4 +3,7 @@ yfinance
 pandas
 numpy
 plotly
+requests
 beautifulsoup4
+feedparser
+textblob
