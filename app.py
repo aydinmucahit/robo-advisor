@@ -8,60 +8,45 @@ import feedparser
 from textblob import TextBlob
 
 # ==========================================
-# ⚙️ AYARLAR VE VERİTABANI
+# ⚙️ AYARLAR
 # ==========================================
-st.set_page_config(page_title="Finans Asistanı V15", page_icon="🏦", layout="wide")
+st.set_page_config(page_title="Finans Asistanı V16", page_icon="🏦", layout="wide")
 
 ASSET_DATABASE = [
-    {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True},
-    {"symbol": "EURTRY=X", "name": "EURO (EUR)", "cat": "Döviz", "halal": True},
-    {"symbol": "GC=F", "name": "ALTIN (Ons)", "cat": "Emtia", "halal": True},
-    {"symbol": "SI=F", "name": "GÜMÜŞ (Ons)", "cat": "Emtia", "halal": True},
-    {"symbol": "THYAO.IS", "name": "THY", "cat": "Borsa", "halal": True},
-    {"symbol": "BIMAS.IS", "name": "BIM", "cat": "Borsa", "halal": True},
-    {"symbol": "ASELS.IS", "name": "ASELSAN", "cat": "Borsa", "halal": True},
-    {"symbol": "TUPRS.IS", "name": "TUPRAS", "cat": "Borsa", "halal": True},
-    {"symbol": "AKBNK.IS", "name": "AKBANK", "cat": "Borsa", "halal": False},
-    {"symbol": "GARAN.IS", "name": "GARANTI", "cat": "Borsa", "halal": False},
-    {"symbol": "BTC-USD", "name": "BITCOIN", "cat": "Kripto", "halal": True},
-    {"symbol": "ETH-USD", "name": "ETHEREUM", "cat": "Kripto", "halal": True},
-    {"symbol": "SOL-USD", "name": "SOLANA", "cat": "Kripto", "halal": True}
+    {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True, "search_term": "USDTRY currency"},
+    {"symbol": "EURTRY=X", "name": "EURO (EUR)", "cat": "Döviz", "halal": True, "search_term": "EURTRY currency"},
+    {"symbol": "GC=F", "name": "ALTIN (Ons)", "cat": "Emtia", "halal": True, "search_term": "Gold price forecast"},
+    {"symbol": "SI=F", "name": "GÜMÜŞ (Ons)", "cat": "Emtia", "halal": True, "search_term": "Silver price forecast"},
+    {"symbol": "THYAO.IS", "name": "THY", "cat": "Borsa", "halal": True, "search_term": "Turkish Airlines stock"},
+    {"symbol": "BIMAS.IS", "name": "BIM", "cat": "Borsa", "halal": True, "search_term": "BIMAS stock"},
+    {"symbol": "ASELS.IS", "name": "ASELSAN", "cat": "Borsa", "halal": True, "search_term": "Aselsan defense stock"},
+    {"symbol": "TUPRS.IS", "name": "TUPRAS", "cat": "Borsa", "halal": True, "search_term": "Tupras refinery stock"},
+    {"symbol": "AKBNK.IS", "name": "AKBANK", "cat": "Borsa", "halal": False, "search_term": "Akbank stock"},
+    {"symbol": "GARAN.IS", "name": "GARANTI", "cat": "Borsa", "halal": False, "search_term": "Garanti BBVA stock"},
+    {"symbol": "BTC-USD", "name": "BITCOIN", "cat": "Kripto", "halal": True, "search_term": "Bitcoin crypto news"},
+    {"symbol": "ETH-USD", "name": "ETHEREUM", "cat": "Kripto", "halal": True, "search_term": "Ethereum crypto news"},
+    {"symbol": "SOL-USD", "name": "SOLANA", "cat": "Kripto", "halal": True, "search_term": "Solana crypto news"}
 ]
 
-# ==========================================
-# 📰 HABER VE DUYGU ANALİZ MOTORU (YENİ)
-# ==========================================
-def analyze_news_sentiment(asset_name):
-    """
-    Google News RSS üzerinden son haberleri çeker ve NLP ile puanlar.
-    Skor: -1 (Çok Kötü) ile +1 (Çok İyi) arası.
-    """
+def analyze_news_sentiment(search_term):
     try:
-        # Finansal terimler evrensel olduğu için İngilizce kaynak daha zengindir
-        rss_url = f"https://news.google.com/rss/search?q={asset_name}+finance+when:1d&hl=en-US&gl=US&ceid=US:en"
+        query = search_term.replace(" ", "%20")
+        rss_url = f"https://news.google.com/rss/search?q={query}+when:1d&hl=en-US&gl=US&ceid=US:en"
         feed = feedparser.parse(rss_url)
-        
         polarity_sum = 0
         count = 0
-        
-        # Son 5 haberi analiz et
         for entry in feed.entries[:5]:
             analysis = TextBlob(entry.title)
             polarity_sum += analysis.sentiment.polarity
             count += 1
-            
-        if count == 0: return 0 # Haber yoksa Nötr
-        
-        avg_score = polarity_sum / count
-        return avg_score
-    except:
-        return 0
+        return polarity_sum / count if count > 0 else 0
+    except: return 0
 
 # ==========================================
 # 📱 ANA EKRAN
 # ==========================================
 st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Finansal Asistan</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Matematik + Haber Analizi (Hibrit Zeka)</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Dinamik Risk Yönetimi ile Hibrit Analiz</p>", unsafe_allow_html=True)
 st.divider()
 
 with st.container():
@@ -93,7 +78,11 @@ with st.container():
         risk_choice = st.radio(
             "Risk Profiliniz:",
             ("🛡️ Koruyucu", "⚖️ Dengeli", "🚀 Büyüme Odaklı"),
-            captions=["Ana para koruması.", "Enflasyonu yenmek.", "Maksimum getiri."],
+            captions=[
+                "Ana para koruması. (Maks. %40 Tek Varlık)",
+                "Enflasyonu yenmek. (Maks. %60 Tek Varlık)",
+                "Maksimum getiri. (Limit Yok, %100 Tek Varlık Olabilir)"
+            ],
             horizontal=True
         )
         
@@ -105,21 +94,20 @@ with st.container():
         with c_cry: use_crypto = st.checkbox("Kripto", value=True)
         
         st.markdown("---")
-        # YENİ ÖZELLİK: HABER ANALİZİ SEÇENEĞİ
-        use_sentiment = st.checkbox("📰 **Haber Analizini (Sentiment) Dahil Et**", value=True, help="Yapay zeka Google News'teki son dakika haberlerini okur ve portföyü ona göre ayarlar.")
+        use_sentiment = st.checkbox("📰 **Haber Analizini Dahil Et**", value=True)
         
         btn_run = st.button("🚀 Hibrit Analizi Başlat", type="primary", use_container_width=True)
 
 st.divider()
 
 if btn_run:
-    # 1. Banka Hesabı
+    # Banka Hesabı
     annual_rate = user_rate / 100.0
     gross_return = money * annual_rate * (months / 12)
     net_return_bank = gross_return * 0.95 
     total_bank = money + net_return_bank
     
-    # 2. Robo Hazırlık
+    # Robo Hazırlık
     active_cats = []
     if use_forex: active_cats.append("Döviz")
     if use_commodity: active_cats.append("Emtia")
@@ -133,18 +121,16 @@ if btn_run:
         st.error("⚠️ En az 2 varlık grubu seçmelisiniz.")
         st.stop()
         
-    # --- AŞAMA 1: HABER ANALİZİ (SENTIMENT) ---
     sentiment_scores = {}
     if use_sentiment:
-        with st.status("📰 Yapay Zeka Haberleri Okuyor...", expanded=True) as status:
+        with st.status("📰 Yapay Zeka Haberleri Tarıyor...", expanded=True) as status:
             for cand in candidates:
-                # Sadece Borsa ve Kripto haberlerine bak (Döviz/Altın genelde makrodur)
-                if cand['cat'] in ['Borsa', 'Kripto']:
-                    st.write(f"Analiz ediliyor: {cand['name']}...")
-                    score = analyze_news_sentiment(cand['name'])
+                if cand['cat'] in ['Borsa', 'Kripto', 'Emtia', 'Döviz']:
+                    st.write(f"Aranıyor: {cand['search_term']}...")
+                    score = analyze_news_sentiment(cand['search_term'])
                     sentiment_scores[cand['symbol']] = score
                 else:
-                    sentiment_scores[cand['symbol']] = 0 # Nötr
+                    sentiment_scores[cand['symbol']] = 0
             status.update(label="✅ Haber Analizi Tamamlandı!", state="complete", expanded=False)
 
     with st.spinner('Matematiksel Modeller Çalışıyor...'):
@@ -155,7 +141,6 @@ if btn_run:
             df.dropna(axis=1, how='all', inplace=True)
             df.ffill(inplace=True); df.bfill(inplace=True)
             
-            # İstatistikler
             returns = np.log(df / df.shift(1))
             trading_days = int(252 * (months / 12))
             mean_ret = returns.mean() * trading_days
@@ -165,49 +150,50 @@ if btn_run:
             best_score = -float('inf')
             best_weights = []
             
+            # --- DİNAMİK KISIT AYARI (DYNAMIC CONSTRAINT) ---
+            if "Koruyucu" in risk_choice:
+                max_single_asset_weight = 0.40 # En fazla %40
+            elif "Dengeli" in risk_choice:
+                max_single_asset_weight = 0.60 # En fazla %60
+            else:
+                max_single_asset_weight = 1.00 # Sınır Yok (%100 olabilir)
+
             for _ in range(num_ports):
                 w = np.random.random(len(df.columns))
                 w /= w.sum()
                 
+                # KURAL: Seçilen moda göre maksimum ağırlığı kontrol et
+                if np.max(w) > max_single_asset_weight: 
+                    continue 
+                
                 port_ret = np.sum(mean_ret * w)
                 port_vol = np.sqrt(np.dot(w.T, np.dot(cov, w)))
                 
-                # --- HİBRİT ZEKA KARAR MEKANİZMASI ---
-                # 1. Matematiksel Skor
                 if "Koruyucu" in risk_choice: math_score = -port_vol 
-                elif "Agresif" in risk_choice: math_score = port_ret
+                elif "Büyüme" in risk_choice: math_score = port_ret
                 else: math_score = port_ret / port_vol if port_vol > 0 else 0
                 
-                # 2. Haber Etkisi (Sentiment Adjustment)
                 sentiment_impact = 0
                 if use_sentiment:
-                    # Portföyün toplam duygu puanını hesapla
-                    # (Varlığın ağırlığı * Varlığın haber puanı)
                     for idx, col in enumerate(df.columns):
-                        # Sembolü bulmak için ters arama
                         sym = [k for k, v in tickers_map.items() if v == col][0]
                         s_score = sentiment_scores.get(sym, 0)
                         sentiment_impact += w[idx] * s_score
                 
-                # Final Skor = Matematik + (Haber * Katsayı)
-                # Agresif modda haberler daha etkilidir
-                impact_factor = 0.5 if "Agresif" in risk_choice else 0.2
+                impact_factor = 0.5 if "Büyüme" in risk_choice else 0.2
                 final_score = math_score + (sentiment_impact * impact_factor)
                 
                 if final_score > best_score:
                     best_score = final_score
                     best_weights = w
             
-            # Sonuç Hesaplama
             robo_ret_pct = np.sum(mean_ret * best_weights)
             robo_risk_pct = np.sqrt(np.dot(best_weights.T, np.dot(cov, best_weights)))
             
             net_return_robo = money * robo_ret_pct
             total_robo = money + net_return_robo
             
-            # --- SONUÇ EKRANI ---
             c1, c2 = st.columns(2)
-            
             c1.info(f"🏦 **{bank_label}**")
             c1.metric("Garanti Tutar", f"{total_bank:,.0f} TL", f"+{net_return_bank:,.0f} TL")
             
@@ -215,27 +201,24 @@ if btn_run:
             c2.success(f"🦅 **Akıllı Portföy ({risk_choice.split(' ')[1]})**")
             c2.metric("Tahmini Tutar", f"{total_robo:,.0f} TL", f"+{net_return_robo:,.0f} TL", delta_color=delta_color)
             
-            if use_sentiment:
-                c2.caption(f"ℹ️ Haber Analizi: Portföy ağırlıkları son dakika gelişmelerine göre optimize edildi.")
-
+            if use_sentiment: c2.caption(f"ℹ️ Haber Analizi Dahil Edildi")
             st.markdown("---")
             
-            # Sentiment Göstergesi (Yeni)
             if use_sentiment:
-                with st.expander("📰 Piyasa Duygu Raporu (Sentiment)", expanded=True):
-                    cols = st.columns(len(sentiment_scores))
-                    # Sadece seçilen varlıkları göster
+                with st.expander("📰 Piyasa Duygu Raporu", expanded=True):
+                    cols = st.columns(4) 
                     relevant_assets = [k for k in sentiment_scores.keys() if tickers_map[k] in df.columns]
-                    
-                    for sym in relevant_assets:
+                    for i, sym in enumerate(relevant_assets):
+                        col_idx = i % 4
                         score = sentiment_scores[sym]
                         name = tickers_map[sym]
-                        if score > 0.1: icon = "🟢 Pozitif"; color="green"
-                        elif score < -0.1: icon = "🔴 Negatif"; color="red"
-                        else: icon = "⚪ Nötr"; color="gray"
-                        st.markdown(f"**{name}**: :{color}[{icon}] ({score:.2f})")
+                        if score > 0.05: icon = "🟢"; color="green"
+                        elif score < -0.05: icon = "🔴"; color="red"
+                        else: icon = "⚪"; color="gray"
+                        with cols[col_idx]:
+                            st.markdown(f"**{name}**")
+                            st.markdown(f":{color}[{icon}] ({score:.2f})")
 
-            # Grafikler
             tab1, tab2 = st.tabs(["📈 Kârlılık", "🍰 Sepet"])
             with tab1:
                 fig_bar = go.Figure(data=[
@@ -253,13 +236,11 @@ if btn_run:
                 final_data = []
                 for asset, w in portfolio:
                     if w < 0.01: continue
-                    # Haber etkisi ikonu
                     s_score = 0
                     for k,v in tickers_map.items(): 
                         if v == asset: s_score = sentiment_scores.get(k, 0)
-                    
-                    trend = "🔥" if s_score > 0.1 else "❄️" if s_score < -0.1 else ""
-                    final_data.append({"Varlık": f"{asset} {trend}", "Oran": f"%{w*100:.1f}", "Tutar": f"{money*w:,.2f} TL"})
+                    trend = "🔥" if s_score > 0.05 else "❄️" if s_score < -0.05 else "➖"
+                    final_data.append({"Varlık": asset, "Trend": trend, "Oran": f"%{w*100:.1f}", "Tutar": f"{money*w:,.2f} TL"})
                 c_list.dataframe(pd.DataFrame(final_data), hide_index=True)
 
         except Exception as e:
