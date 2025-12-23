@@ -8,12 +8,23 @@ import plotly.graph_objects as go
 # ==========================================
 # ⚙️ AYARLAR VE VERİTABANI
 # ==========================================
-st.set_page_config(page_title="Robo-Advisor V10", page_icon="🏦", layout="wide")
+st.set_page_config(page_title="Robo-Advisor V11", page_icon="🏦", layout="wide")
 
-# Güncel Piyasa Oranları
-BANK_RATES = {
-    "Faiz": {"name": "Mevduat Faizi (Ort.)", "rate": 0.48}, 
-    "Katilim": {"name": "Katılım Kâr Payı (Ort.)", "rate": 0.42} 
+# GÜNCEL BANKA ORANLARI (Temsili Veri Tabanı)
+# Not: Gerçek bir uygulamada burası canlı API ile beslenir.
+LIVE_BANK_DATA = {
+    "Faiz": [
+        {"bank": "ON Plus / Burgan", "rate": 0.54},
+        {"bank": "Fibabanka Kiraz", "rate": 0.52},
+        {"bank": "Enpara", "rate": 0.45},
+        {"bank": "Garanti BBVA", "rate": 0.48}
+    ],
+    "Katilim": [
+        {"bank": "Vakıf Katılım", "rate": 0.46},
+        {"bank": "Ziraat Katılım", "rate": 0.44},
+        {"bank": "Kuveyt Türk", "rate": 0.43},
+        {"bank": "Albaraka", "rate": 0.42}
+    ]
 }
 
 ASSET_DATABASE = [
@@ -33,14 +44,14 @@ ASSET_DATABASE = [
 ]
 
 # ==========================================
-# 📱 ANA EKRAN GİRDİ ALANI (Artık Sidebar Yok!)
+# 📱 ANA EKRAN GİRDİ ALANI
 # ==========================================
 st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Yapay Zeka Finans Danışmanı</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Paranızın değerini korumak ve büyütmek için size özel strateji.</p>", unsafe_allow_html=True)
 
 st.divider()
 
-# --- GİRDİ FORMU (KART YAPISI) ---
+# --- GİRDİ FORMU ---
 with st.container():
     col1, col2 = st.columns(2)
     
@@ -54,31 +65,30 @@ with st.container():
 
     st.markdown("### 🎯 Stratejinizi Seçin")
     
-    # SİZİN BELİRLEDİĞİNİZ AÇIKLAMALAR BURADA
+    # GÜNCELLENMİŞ RİSK AÇIKLAMALARI
     risk_choice = st.radio(
         "Risk Profiliniz:",
         ("🛡️ Muhafazakar", "⚖️ Dengeli", "🚀 Agresif"),
         captions=[
-            "Volatilite riski alamazsınız. Ana para koruması (Principal Protection) esastır.",
-            "Piyasa döngülerini yakalar. Düşüşleri tolere eder, uzun vadede bankayı yener.",
-            "Asimetrik Getiri (Sınırsız kazanç, sınırlı kayıp) hedeflersiniz."
+            "Paraya 1 yıl içinde ihtiyacınız varsa.",
+            "3-5 yıl dokunmayacaksanız.",
+            "'Bu para batarsa üzülmem' diyorsanız."
         ],
-        horizontal=True # Mobilde alt alta, PC'de yan yana görünür (Responsive)
+        horizontal=True
     )
 
     st.markdown("### ⚙️ Tercihler")
     
-    # 4 Kolonlu Varlık Seçimi (Mobilde otomatik alt alta iner)
     c_fx, c_comm, c_stk, c_cry = st.columns(4)
     with c_fx: use_forex = st.checkbox("Döviz", value=True)
     with c_comm: use_commodity = st.checkbox("Emtia", value=True)
     with c_stk: use_stock = st.checkbox("Borsa", value=True)
     with c_cry: use_crypto = st.checkbox("Kripto", value=True)
     
-    st.write("") # Boşluk
+    st.write("") 
     is_halal = st.toggle("💚 **İslami Hassasiyet (Helal Filtre)**", value=True)
     if is_halal:
-        st.caption("Faizli ve şüpheli varlıklar analiz dışı bırakılır. Kıyaslama Katılım Bankası ile yapılır.")
+        st.caption("Faizsiz Katılım Bankacılığı oranları baz alınır.")
 
     st.write("")
     btn_run = st.button("🚀 Portföyü Analiz Et ve Oluştur", type="primary", use_container_width=True)
@@ -89,14 +99,20 @@ st.divider()
 # 🧠 HESAPLAMA MOTORU
 # ==========================================
 if btn_run:
-    # 1. Benchmark (Banka)
-    rate_info = BANK_RATES["Katilim"] if is_halal else BANK_RATES["Faiz"]
-    annual_rate = rate_info["rate"]
+    # --- 1. EN İYİ BANKA ORANINI BUL ---
+    category_key = "Katilim" if is_halal else "Faiz"
+    bank_list = LIVE_BANK_DATA[category_key]
+    
+    # En yüksek oranı veren bankayı bul
+    best_bank_offer = max(bank_list, key=lambda x: x['rate'])
+    annual_rate = best_bank_offer['rate']
+    bank_name = best_bank_offer['bank']
+    
     gross_return = money * annual_rate * (months / 12)
     net_return_bank = gross_return * 0.95 
     total_bank = money + net_return_bank
     
-    # 2. Robo Hesaplama
+    # --- 2. ROBO HESAPLAMA ---
     active_cats = []
     if use_forex: active_cats.append("Döviz")
     if use_commodity: active_cats.append("Emtia")
@@ -135,13 +151,9 @@ if btn_run:
                 port_ret = np.sum(mean_ret * w)
                 port_vol = np.sqrt(np.dot(w.T, np.dot(cov, w)))
                 
-                # --- STRATEJİ KARAR MEKANİZMASI ---
-                if "Muhafazakar" in risk_choice:
-                    score = -port_vol 
-                elif "Agresif" in risk_choice:
-                    score = port_ret
-                else: # Dengeli
-                    score = port_ret / port_vol if port_vol > 0 else 0
+                if "Muhafazakar" in risk_choice: score = -port_vol 
+                elif "Agresif" in risk_choice: score = port_ret
+                else: score = port_ret / port_vol if port_vol > 0 else 0
                 
                 if score > best_score:
                     best_score = score
@@ -159,16 +171,21 @@ if btn_run:
             
             c1, c2 = st.columns(2)
             
-            # Banka Kartı
-            c1.info(f"🏦 **{rate_info['name']}**\n\n"
-                    f"Garanti Getiri: **{total_bank:,.0f} TL**\n"
-                    f"(Net Kazanç: +{net_return_bank:,.0f} TL)")
+            # BANKA KARTI (GELİŞMİŞ)
+            c1.info(f"🏦 **En İyi Teklif: {bank_name}**\n\n"
+                    f"Oran (Yıllık): **%{annual_rate*100:.0f}**\n"
+                    f"Garanti Getiri: **+{net_return_bank:,.0f} TL**")
             
-            # Robo Kartı
+            # UYARI METNİ (İstediğiniz Yasal Uyarı)
+            c1.caption(f"⚠️ *Bu oran piyasa ortalamasıdır. Gerçek oranlar için {bank_name} veya kendi bankanızla iletişime geçiniz.*")
+            
+            # ROBO KARTI
             delta_color = "normal" if net_return_robo > net_return_bank else "off"
             c2.success(f"🦅 **Akıllı Portföy**\n\n"
-                       f"Hedeflenen: **{total_robo:,.0f} TL**\n"
-                       f"(Beklenen Kazanç: +{net_return_robo:,.0f} TL)")
+                       f"Hedeflenen Tutar: **{total_robo:,.0f} TL**\n"
+                       f"Beklenen Kazanç: **+{net_return_robo:,.0f} TL**")
+            
+            c2.caption(f"Risk Seviyesi: %{robo_risk_pct*100:.1f} (Geçmiş veriye dayalı tahmindir).")
 
             st.markdown("---")
 
@@ -177,7 +194,7 @@ if btn_run:
             
             with tab1:
                 fig_bar = go.Figure(data=[
-                    go.Bar(name='Banka', x=['Net Kazanç'], y=[net_return_bank], marker_color='#95a5a6', text=[f"{net_return_bank:,.0f} TL"]),
+                    go.Bar(name=f'{bank_name}', x=['Net Kazanç'], y=[net_return_bank], marker_color='#95a5a6', text=[f"{net_return_bank:,.0f} TL"]),
                     go.Bar(name='Robo', x=['Net Kazanç'], y=[net_return_robo], marker_color='#27ae60', text=[f"{net_return_robo:,.0f} TL"])
                 ])
                 fig_bar.update_layout(title="Hangi Seçenek Daha Kârlı?", barmode='group')
