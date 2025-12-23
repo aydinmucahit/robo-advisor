@@ -4,29 +4,11 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-import requests
 
 # ==========================================
 # ⚙️ AYARLAR VE VERİTABANI
 # ==========================================
-st.set_page_config(page_title="Robo-Advisor V13", page_icon="🏦", layout="wide")
-
-# GÜNCEL PİYASA ORANLARI (Canlı Veri Simülasyonu)
-# Buradaki veriler anlık piyasa liderleridir.
-LIVE_MARKET_DATA = {
-    "Faiz": [
-        {"bank": "ON Plus (Burgan)", "rate": 0.54},
-        {"bank": "Fibabanka Kiraz", "rate": 0.52},
-        {"bank": "Enpara", "rate": 0.48},
-        {"bank": "ING E-Turuncu", "rate": 0.53}
-    ],
-    "Katilim": [
-        {"bank": "Vakıf Katılım", "rate": 0.46},
-        {"bank": "Kuveyt Türk", "rate": 0.44},
-        {"bank": "Ziraat Katılım", "rate": 0.45},
-        {"bank": "Türkiye Finans", "rate": 0.43}
-    ]
-}
+st.set_page_config(page_title="Finans Asistanı V13", page_icon="🏦", layout="wide")
 
 ASSET_DATABASE = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True},
@@ -45,70 +27,80 @@ ASSET_DATABASE = [
 ]
 
 # ==========================================
-# 🕸️ ORAN BULUCU MOTOR
-# ==========================================
-def get_best_offer(is_halal):
-    """Piyasadaki en iyi oranı ve bankayı bulur"""
-    category = "Katilim" if is_halal else "Faiz"
-    offers = LIVE_MARKET_DATA[category]
-    # Orana göre büyükten küçüğe sırala ve en iyisini seç
-    best = max(offers, key=lambda x: x['rate'])
-    return best
-
-# ==========================================
 # 📱 ANA EKRAN
 # ==========================================
 st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Finansal Asistan</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Banka mı, Yapay Zeka Portföyü mü? Karşılaştırın.</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Gerçek verilerle şeffaf hesaplama.</p>", unsafe_allow_html=True)
 st.divider()
 
 with st.container():
-    col1, col2 = st.columns(2)
+    # --- SOL KOLON: GİRDİLER ---
+    col1, col2 = st.columns([1, 1.5])
+    
     with col1:
+        st.subheader("1. Parametreler")
         money = st.number_input("💰 Yatırım Tutarı (TL)", min_value=1000, value=100000, step=1000, format="%d")
-    with col2:
+        
         duration_options = {"1 Ay": 1, "3 Ay": 3, "6 Ay": 6, "1 Yıl": 12}
         selected_duration_label = st.selectbox("⏳ Vade Seçimi", list(duration_options.keys()), index=3)
         months = duration_options[selected_duration_label]
+        
+        st.markdown("---")
+        
+        # DÜRÜST BANKA MODÜLÜ
+        is_halal = st.toggle("💚 İslami Hassasiyet (Katılım)", value=True)
+        
+        st.info("👇 Banka/Katılım Oranını Giriniz")
+        
+        # Link Butonu
+        st.link_button("🔗 Güncel Oranları Gör (HangiKredi)", "https://www.hangikredi.com/yatirim-araclari/mevduat-faiz-oranlari")
+        
+        if is_halal:
+            user_rate = st.number_input("Katılım Kâr Payı Oranı (%)", min_value=0.0, max_value=100.0, value=42.0, step=0.5)
+            bank_label = "Katılım Hesabı"
+        else:
+            user_rate = st.number_input("Mevduat Faiz Oranı (%)", min_value=0.0, max_value=100.0, value=53.0, step=0.5)
+            bank_label = "Mevduat Hesabı"
 
-    st.markdown("### 🎯 Stratejinizi Seçin")
-    risk_choice = st.radio(
-        "Risk Profiliniz:",
-        ("🛡️ Muhafazakar", "⚖️ Dengeli", "🚀 Agresif"),
-        captions=[
-            "Paraya 1 yıl içinde ihtiyacınız varsa.",
-            "3-5 yıl dokunmayacaksanız.",
-            "'Bu para batarsa üzülmem' diyorsanız."
-        ],
-        horizontal=True
-    )
+    # --- SAĞ KOLON: STRATEJİ ---
+    with col2:
+        st.subheader("2. Strateji ve Tercihler")
+        
+        risk_choice = st.radio(
+            "Risk Profiliniz:",
+            ("🛡️ Muhafazakar", "⚖️ Dengeli", "🚀 Agresif"),
+            captions=[
+                "Ana para koruması öncelikli. (Düşük Risk)",
+                "Enflasyonu yenmek ve büyümek. (Orta Risk)",
+                "Maksimum getiri hedefi. (Yüksek Risk)"
+            ],
+            horizontal=True
+        )
+        
+        st.write("")
+        c_fx, c_comm, c_stk, c_cry = st.columns(4)
+        with c_fx: use_forex = st.checkbox("Döviz", value=True)
+        with c_comm: use_commodity = st.checkbox("Emtia", value=True)
+        with c_stk: use_stock = st.checkbox("Borsa", value=True)
+        with c_cry: use_crypto = st.checkbox("Kripto", value=True)
 
-    st.markdown("### ⚙️ Tercihler")
-    c_fx, c_comm, c_stk, c_cry = st.columns(4)
-    with c_fx: use_forex = st.checkbox("Döviz", value=True)
-    with c_comm: use_commodity = st.checkbox("Emtia", value=True)
-    with c_stk: use_stock = st.checkbox("Borsa", value=True)
-    with c_cry: use_crypto = st.checkbox("Kripto", value=True)
-    
-    st.write("") 
-    is_halal = st.toggle("💚 **İslami Hassasiyet (Helal Filtre)**", value=True)
-    
-    st.write("")
-    btn_run = st.button("🚀 Karşılaştırmalı Analiz Yap", type="primary", use_container_width=True)
+        st.markdown("---")
+        btn_run = st.button("🚀 Kıyaslamalı Analizi Başlat", type="primary", use_container_width=True)
 
 st.divider()
 
 if btn_run:
-    # --- 1. EN İYİ BANKAYI BUL ---
-    best_offer = get_best_offer(is_halal)
-    bank_name = best_offer['bank']
-    annual_rate = best_offer['rate']
+    # --- 1. BANKA HESABI (KULLANICI GİRİŞLİ) ---
+    annual_rate = user_rate / 100.0
     
+    # Basit Faiz/Getiri Formülü: Ana Para * Oran * (Ay/12)
     gross_return = money * annual_rate * (months / 12)
+    
+    # Stopaj (%5 Standart kabulü)
     net_return_bank = gross_return * 0.95 
     total_bank = money + net_return_bank
     
-    # --- 2. ROBO HESAPLAMA ---
+    # --- 2. ROBO HESABI ---
     active_cats = []
     if use_forex: active_cats.append("Döviz")
     if use_commodity: active_cats.append("Emtia")
@@ -122,15 +114,16 @@ if btn_run:
         st.error("⚠️ En az 2 varlık grubu seçmelisiniz.")
         st.stop()
         
-    with st.spinner(f'{bank_name} oranları ile Piyasa karşılaştırılıyor...'):
+    with st.spinner('Piyasa verileri analiz ediliyor...'):
         try:
             tickers_map = {a['symbol']: a['name'] for a in candidates}
+            # Yfinance Canlı Veri Çekimi
             df = yf.download(list(tickers_map.keys()), period="1y", progress=False)['Close']
             df.rename(columns=tickers_map, inplace=True)
             df.dropna(axis=1, how='all', inplace=True)
             df.ffill(inplace=True); df.bfill(inplace=True)
             
-            # Markowitz
+            # İstatistikler
             returns = np.log(df / df.shift(1))
             trading_days = int(252 * (months / 12))
             mean_ret = returns.mean() * trading_days
@@ -156,37 +149,39 @@ if btn_run:
             
             robo_ret_pct = np.sum(mean_ret * best_weights)
             robo_risk_pct = np.sqrt(np.dot(best_weights.T, np.dot(cov, best_weights)))
+            
             net_return_robo = money * robo_ret_pct
             total_robo = money + net_return_robo
             
             # --- SONUÇ KARTLARI ---
-            st.subheader(f"📊 Analiz Sonucu ({risk_choice.split(' ')[1]} Mod)")
+            st.subheader(f"📊 Analiz Sonucu")
+            
             c1, c2 = st.columns(2)
             
-            # BANKA KARTI (Banka Adı Eklendi)
-            c1.info(f"🏦 **En İyi Teklif: {bank_name}**") # <-- BURASI
+            # BANKA SONUCU
+            c1.info(f"🏦 **{bank_label} (Manuel Giriş: %{user_rate})**")
             c1.metric(label="Vade Sonu Garanti Tutar", 
                       value=f"{total_bank:,.0f} TL", 
                       delta=f"+{net_return_bank:,.0f} TL (Net Kazanç)")
-            c1.caption(f"Yıllık Oran: %{annual_rate*100:.0f} | Kaynak: Piyasa Ort.")
             
-            # ROBO KARTI
+            # ROBO SONUCU
             delta_color = "normal" if net_return_robo > net_return_bank else "off"
-            c2.success(f"🦅 **Akıllı Portföy**")
+            c2.success(f"🦅 **Akıllı Portföy ({risk_choice.split(' ')[1]})**")
             c2.metric(label="Vade Sonu Tahmini Tutar",
                       value=f"{total_robo:,.0f} TL",
                       delta=f"+{net_return_robo:,.0f} TL (Beklenen Kazanç)",
                       delta_color=delta_color)
-            c2.caption(f"Risk Seviyesi: %{robo_risk_pct*100:.1f} | Geçmiş performansa dayalı.")
+            c2.caption(f"Risk Seviyesi: %{robo_risk_pct*100:.1f}")
 
             st.markdown("---")
+
+            # GRAFİKLER
+            tab1, tab2 = st.tabs(["📈 Kârlılık Karşılaştırması", "🍰 Portföy Detayı"])
             
-            # Grafikler
-            tab1, tab2 = st.tabs(["📈 Kârlılık", "🍰 Sepet Detayı"])
             with tab1:
                 fig_bar = go.Figure(data=[
-                    go.Bar(name=f'{bank_name}', x=['Hedef Tutar'], y=[total_bank], marker_color='#95a5a6', text=[f"{total_bank:,.0f} TL"]),
-                    go.Bar(name='Robo Portföy', x=['Hedef Tutar'], y=[total_robo], marker_color='#27ae60', text=[f"{total_robo:,.0f} TL"])
+                    go.Bar(name='Banka', x=['Vade Sonu Tutar'], y=[total_bank], marker_color='#95a5a6', text=[f"{total_bank:,.0f} TL"]),
+                    go.Bar(name='Robo', x=['Vade Sonu Tutar'], y=[total_robo], marker_color='#27ae60', text=[f"{total_robo:,.0f} TL"])
                 ])
                 fig_bar.update_layout(title="Hangi Seçenek Daha Kârlı?", barmode='group')
                 st.plotly_chart(fig_bar, use_container_width=True)
@@ -195,12 +190,13 @@ if btn_run:
                 portfolio = sorted(zip(df.columns, best_weights), key=lambda x:x[1], reverse=True)
                 labels = [p[0] for p in portfolio if p[1] > 0.01]
                 values = [p[1] for p in portfolio if p[1] > 0.01]
+                
                 c_pie, c_table = st.columns([1, 1])
                 with c_pie:
                     fig_pie = px.pie(values=values, names=labels, title="Varlık Dağılımı", hole=0.4)
                     st.plotly_chart(fig_pie, use_container_width=True)
                 with c_table:
-                    st.write("**Dağılım**")
+                    st.write("**Sepet İçeriği**")
                     final_data = []
                     for asset, w in portfolio:
                         if w < 0.01: continue
