@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 # ==========================================
 # ⚙️ AYARLAR VE VERİTABANI
 # ==========================================
-st.set_page_config(page_title="Finans Asistanı V13", page_icon="🏦", layout="wide")
+st.set_page_config(page_title="Finans Asistanı V14", page_icon="🏦", layout="wide")
 
 ASSET_DATABASE = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True},
@@ -47,13 +47,21 @@ with st.container():
         
         st.markdown("---")
         
-        # DÜRÜST BANKA MODÜLÜ
-        is_halal = st.toggle("💚 İslami Hassasiyet (Katılım)", value=True)
+        # --- DÜZELTME 1: İKONSUZ VE SADELİK ---
+        is_halal = st.toggle("İslami Hassasiyet (Katılım Modu)", value=True)
         
         st.info("👇 Banka/Katılım Oranını Giriniz")
         
-        # Link Butonu
-        st.link_button("🔗 Güncel Oranları Gör (HangiKredi)", "https://www.hangikredi.com/yatirim-araclari/mevduat-faiz-oranlari")
+        # --- DÜZELTME 2: YENİ SEKMEDE AÇILAN LİNK ---
+        # Standart buton yerine HTML link kullanıyoruz ki sayfa kapanmasın.
+        st.markdown("""
+            <a href="https://www.hangikredi.com/yatirim-araclari/mevduat-faiz-oranlari" target="_blank" style="text-decoration: none;">
+                <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #d0d0d0; color: #31333F;">
+                    🔗 Güncel Oranları Gör (Yeni Sekme)
+                </div>
+            </a>
+            <br>
+        """, unsafe_allow_html=True)
         
         if is_halal:
             user_rate = st.number_input("Katılım Kâr Payı Oranı (%)", min_value=0.0, max_value=100.0, value=42.0, step=0.5)
@@ -66,12 +74,13 @@ with st.container():
     with col2:
         st.subheader("2. Strateji ve Tercihler")
         
+        # --- DÜZELTME 3: İSİMLENDİRME (Muhafazakar -> Koruyucu) ---
         risk_choice = st.radio(
             "Risk Profiliniz:",
-            ("🛡️ Muhafazakar", "⚖️ Dengeli", "🚀 Agresif"),
+            ("🛡️ Koruyucu", "⚖️ Dengeli", "🚀 Büyüme Odaklı"),
             captions=[
                 "Ana para koruması öncelikli. (Düşük Risk)",
-                "Enflasyonu yenmek ve büyümek. (Orta Risk)",
+                "Enflasyonu yenmek ve değer korumak. (Orta Risk)",
                 "Maksimum getiri hedefi. (Yüksek Risk)"
             ],
             horizontal=True
@@ -90,13 +99,9 @@ with st.container():
 st.divider()
 
 if btn_run:
-    # --- 1. BANKA HESABI (KULLANICI GİRİŞLİ) ---
+    # --- 1. BANKA HESABI ---
     annual_rate = user_rate / 100.0
-    
-    # Basit Faiz/Getiri Formülü: Ana Para * Oran * (Ay/12)
     gross_return = money * annual_rate * (months / 12)
-    
-    # Stopaj (%5 Standart kabulü)
     net_return_bank = gross_return * 0.95 
     total_bank = money + net_return_bank
     
@@ -117,7 +122,6 @@ if btn_run:
     with st.spinner('Piyasa verileri analiz ediliyor...'):
         try:
             tickers_map = {a['symbol']: a['name'] for a in candidates}
-            # Yfinance Canlı Veri Çekimi
             df = yf.download(list(tickers_map.keys()), period="1y", progress=False)['Close']
             df.rename(columns=tickers_map, inplace=True)
             df.dropna(axis=1, how='all', inplace=True)
@@ -139,8 +143,9 @@ if btn_run:
                 port_ret = np.sum(mean_ret * w)
                 port_vol = np.sqrt(np.dot(w.T, np.dot(cov, w)))
                 
-                if "Muhafazakar" in risk_choice: score = -port_vol 
-                elif "Agresif" in risk_choice: score = port_ret
+                # İsim değişikliğine göre mantık güncellemesi
+                if "Koruyucu" in risk_choice: score = -port_vol 
+                elif "Büyüme" in risk_choice: score = port_ret
                 else: score = port_ret / port_vol if port_vol > 0 else 0
                 
                 if score > best_score:
@@ -159,14 +164,14 @@ if btn_run:
             c1, c2 = st.columns(2)
             
             # BANKA SONUCU
-            c1.info(f"🏦 **{bank_label} (Manuel Giriş: %{user_rate})**")
+            c1.info(f"🏦 **{bank_label} (Giriş: %{user_rate})**")
             c1.metric(label="Vade Sonu Garanti Tutar", 
                       value=f"{total_bank:,.0f} TL", 
                       delta=f"+{net_return_bank:,.0f} TL (Net Kazanç)")
             
-            # ROBO SONUCU
+            # ROBO SONUCU (Kartal Simgesi Silindi)
             delta_color = "normal" if net_return_robo > net_return_bank else "off"
-            c2.success(f"🦅 **Akıllı Portföy ({risk_choice.split(' ')[1]})**")
+            c2.success(f"**Akıllı Portföy ({risk_choice.split(' ')[1]})**")
             c2.metric(label="Vade Sonu Tahmini Tutar",
                       value=f"{total_robo:,.0f} TL",
                       delta=f"+{net_return_robo:,.0f} TL (Beklenen Kazanç)",
