@@ -10,7 +10,7 @@ from textblob import TextBlob
 # ==========================================
 # ⚙️ AYARLAR
 # ==========================================
-st.set_page_config(page_title="Finans Asistanı V16.1", page_icon="🏦", layout="wide")
+st.set_page_config(page_title="Finans Asistanı V16.2", page_icon="🏦", layout="wide")
 
 ASSET_DATABASE = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True, "search_term": "USDTRY currency"},
@@ -150,7 +150,7 @@ if btn_run:
             best_score = -float('inf')
             best_weights = []
             
-            # --- DİNAMİK KISIT AYARI ---
+            # --- DİNAMİK KISIT ---
             if "Koruyucu" in risk_choice:
                 max_single_asset_weight = 0.40 
             elif "Dengeli" in risk_choice:
@@ -205,10 +205,8 @@ if btn_run:
             
             if use_sentiment:
                 with st.expander("📰 Piyasa Duygu Raporu", expanded=True):
-                    # --- YENİ EKLENEN KISIM: RENK AÇIKLAMALARI ---
                     st.caption("🟢: Olumlu Haberler (>0.05) | 🔴: Olumsuz Haberler (<-0.05) | ⚪: Nötr/Yatay")
                     st.divider()
-                    # ---------------------------------------------
                     cols = st.columns(4) 
                     relevant_assets = [k for k in sentiment_scores.keys() if tickers_map[k] in df.columns]
                     for i, sym in enumerate(relevant_assets):
@@ -236,15 +234,19 @@ if btn_run:
                 c_pie, c_list = st.columns([1, 1])
                 c_pie.plotly_chart(px.pie(values=values, names=labels, hole=0.4), use_container_width=True)
                 
-                final_data = []
-                for asset, w in portfolio:
-                    if w < 0.01: continue
-                    s_score = 0
-                    for k,v in tickers_map.items(): 
-                        if v == asset: s_score = sentiment_scores.get(k, 0)
-                    trend = "🔥" if s_score > 0.05 else "❄️" if s_score < -0.05 else "➖"
-                    final_data.append({"Varlık": asset, "Trend": trend, "Oran": f"%{w*100:.1f}", "Tutar": f"{money*w:,.2f} TL"})
-                c_list.dataframe(pd.DataFrame(final_data), hide_index=True)
+                with c_list:
+                    # --- YENİ EKLENTİ: SEPET REHBERİ ---
+                    st.caption("🔥: Haberler Pozitif | ❄️: Haberler Negatif | ➖: Nötr")
+                    # -----------------------------------
+                    final_data = []
+                    for asset, w in portfolio:
+                        if w < 0.01: continue
+                        s_score = 0
+                        for k,v in tickers_map.items(): 
+                            if v == asset: s_score = sentiment_scores.get(k, 0)
+                        trend = "🔥" if s_score > 0.05 else "❄️" if s_score < -0.05 else "➖"
+                        final_data.append({"Varlık": asset, "Trend": trend, "Oran": f"%{w*100:.1f}", "Tutar": f"{money*w:,.2f} TL"})
+                    st.dataframe(pd.DataFrame(final_data), hide_index=True)
 
         except Exception as e:
             st.error(f"Hata: {e}")
