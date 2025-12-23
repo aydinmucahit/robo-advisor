@@ -8,12 +8,12 @@ import plotly.graph_objects as go
 # ==========================================
 # ⚙️ AYARLAR VE VERİTABANI
 # ==========================================
-st.set_page_config(page_title="Robo-Advisor Pro V7", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Robo-Advisor V10", page_icon="🏦", layout="wide")
 
-# Güncel Piyasa Oranları (Temsili - Ortalama)
+# Güncel Piyasa Oranları
 BANK_RATES = {
-    "Faiz": {"name": "Mevduat Faizi (Ort.)", "rate": 0.48}, # %48 Yıllık
-    "Katilim": {"name": "Katılım Kâr Payı (Ort.)", "rate": 0.42} # %42 Yıllık Tahmini
+    "Faiz": {"name": "Mevduat Faizi (Ort.)", "rate": 0.48}, 
+    "Katilim": {"name": "Katılım Kâr Payı (Ort.)", "rate": 0.42} 
 }
 
 ASSET_DATABASE = [
@@ -24,6 +24,7 @@ ASSET_DATABASE = [
     {"symbol": "THYAO.IS", "name": "THY", "cat": "Borsa", "halal": True},
     {"symbol": "BIMAS.IS", "name": "BIM", "cat": "Borsa", "halal": True},
     {"symbol": "ASELS.IS", "name": "ASELSAN", "cat": "Borsa", "halal": True},
+    {"symbol": "TUPRS.IS", "name": "TUPRAS", "cat": "Borsa", "halal": True},
     {"symbol": "AKBNK.IS", "name": "AKBANK", "cat": "Borsa", "halal": False},
     {"symbol": "GARAN.IS", "name": "GARANTI", "cat": "Borsa", "halal": False},
     {"symbol": "BTC-USD", "name": "BITCOIN", "cat": "Kripto", "halal": True},
@@ -32,70 +33,70 @@ ASSET_DATABASE = [
 ]
 
 # ==========================================
-# 🎨 YAN MENÜ (GİRDİLER)
+# 📱 ANA EKRAN GİRDİ ALANI (Artık Sidebar Yok!)
 # ==========================================
-with st.sidebar:
-    st.header("🦅 Finansal Kokpit")
+st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Yapay Zeka Finans Danışmanı</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Paranızın değerini korumak ve büyütmek için size özel strateji.</p>", unsafe_allow_html=True)
+
+st.divider()
+
+# --- GİRDİ FORMU (KART YAPISI) ---
+with st.container():
+    col1, col2 = st.columns(2)
     
-    # 1. Temel Bilgiler
-    money = st.number_input("Yatırım Tutarı (TL)", min_value=1000, value=100000, step=1000, format="%d")
+    with col1:
+        money = st.number_input("💰 Yatırım Tutarı (TL)", min_value=1000, value=100000, step=1000, format="%d")
     
-    # 2. Vade Seçimi
-    duration_options = {"1 Ay": 1, "3 Ay": 3, "6 Ay": 6, "1 Yıl": 12}
-    selected_duration_label = st.selectbox("Vade Seçimi", list(duration_options.keys()), index=3)
-    months = duration_options[selected_duration_label]
+    with col2:
+        duration_options = {"1 Ay": 1, "3 Ay": 3, "6 Ay": 6, "1 Yıl": 12}
+        selected_duration_label = st.selectbox("⏳ Vade (Paraya ne zaman ihtiyacınız var?)", list(duration_options.keys()), index=3)
+        months = duration_options[selected_duration_label]
+
+    st.markdown("### 🎯 Stratejinizi Seçin")
     
-    st.divider()
+    # SİZİN BELİRLEDİĞİNİZ AÇIKLAMALAR BURADA
+    risk_choice = st.radio(
+        "Risk Profiliniz:",
+        ("🛡️ Muhafazakar", "⚖️ Dengeli", "🚀 Agresif"),
+        captions=[
+            "Volatilite riski alamazsınız. Ana para koruması (Principal Protection) esastır.",
+            "Piyasa döngülerini yakalar. Düşüşleri tolere eder, uzun vadede bankayı yener.",
+            "Asimetrik Getiri (Sınırsız kazanç, sınırlı kayıp) hedeflersiniz."
+        ],
+        horizontal=True # Mobilde alt alta, PC'de yan yana görünür (Responsive)
+    )
+
+    st.markdown("### ⚙️ Tercihler")
     
-    # 3. Hassasiyet Ayarı
-    is_halal = st.toggle("💚 İslami Hassasiyet (Katılım)", value=True)
+    # 4 Kolonlu Varlık Seçimi (Mobilde otomatik alt alta iner)
+    c_fx, c_comm, c_stk, c_cry = st.columns(4)
+    with c_fx: use_forex = st.checkbox("Döviz", value=True)
+    with c_comm: use_commodity = st.checkbox("Emtia", value=True)
+    with c_stk: use_stock = st.checkbox("Borsa", value=True)
+    with c_cry: use_crypto = st.checkbox("Kripto", value=True)
     
-    st.divider()
-    
-    # 4. Varlık Tercihleri
-    st.subheader("Portföy Sepeti")
-    use_forex = st.checkbox("Döviz", value=True)
-    use_commodity = st.checkbox("Emtia (Altın/Gümüş)", value=True)
-    use_stock = st.checkbox("Borsa İstanbul", value=True)
-    use_crypto = st.checkbox("Kripto Paralar", value=True)
-    
-    btn_run = st.button("🚀 Hesapla ve Karşılaştır", type="primary")
+    st.write("") # Boşluk
+    is_halal = st.toggle("💚 **İslami Hassasiyet (Helal Filtre)**", value=True)
+    if is_halal:
+        st.caption("Faizli ve şüpheli varlıklar analiz dışı bırakılır. Kıyaslama Katılım Bankası ile yapılır.")
+
+    st.write("")
+    btn_run = st.button("🚀 Portföyü Analiz Et ve Oluştur", type="primary", use_container_width=True)
+
+st.divider()
 
 # ==========================================
 # 🧠 HESAPLAMA MOTORU
 # ==========================================
 if btn_run:
-    st.title(f"📊 {selected_duration_label} Vadeli Yatırım Analizi")
+    # 1. Benchmark (Banka)
+    rate_info = BANK_RATES["Katilim"] if is_halal else BANK_RATES["Faiz"]
+    annual_rate = rate_info["rate"]
+    gross_return = money * annual_rate * (months / 12)
+    net_return_bank = gross_return * 0.95 
+    total_bank = money + net_return_bank
     
-    # --- BÖLÜM 1: BANKA/KATILIM GETİRİSİ (Benchmark) ---
-    col_bank, col_robo = st.columns(2)
-    
-    with col_bank:
-        st.subheader("🏦 Banka Seçeneği")
-        
-        if is_halal:
-            rate_info = BANK_RATES["Katilim"]
-            st.info(f"Mod: **Katılım Bankacılığı** (Kâr Payı)")
-        else:
-            rate_info = BANK_RATES["Faiz"]
-            st.info(f"Mod: **Mevduat Faizi** (Standart)")
-            
-        annual_rate = rate_info["rate"]
-        
-        # Basit Faiz/Getiri Hesabı: Ana Para * Oran * (Ay / 12)
-        gross_return = money * annual_rate * (months / 12)
-        net_return_bank = gross_return * 0.95 # %5 Stopaj tahmini
-        total_bank = money + net_return_bank
-        
-        st.metric(label=f"{rate_info['name']} Getirisi", 
-                  value=f"{total_bank:,.2f} TL", 
-                  delta=f"+{net_return_bank:,.2f} TL")
-        
-        st.progress(value=min(1.0, (annual_rate * (months/12))), text=f"Tahmini Dönemlik Oran: %{(annual_rate * (months/12) * 100):.1f}")
-
-    # --- BÖLÜM 2: ROBO-ADVISOR SEPETİ ---
-    
-    # 1. Varlık Filtreleme
+    # 2. Robo Hesaplama
     active_cats = []
     if use_forex: active_cats.append("Döviz")
     if use_commodity: active_cats.append("Emtia")
@@ -106,101 +107,98 @@ if btn_run:
     if is_halal: candidates = [a for a in candidates if a['halal']]
     
     if len(candidates) < 2:
-        st.error("Lütfen en az 2 varlık grubu seçin.")
+        st.error("⚠️ En az 2 varlık grubu seçmelisiniz.")
         st.stop()
         
-    with st.spinner('Yapay Zeka piyasayı analiz ediyor...'):
-        # 2. Veri Çekme
-        tickers_map = {a['symbol']: a['name'] for a in candidates}
+    with st.spinner('Yapay Zeka piyasayı tarıyor, en iyi kombinasyonu hesaplıyor...'):
         try:
-            df = yf.download(list(tickers_map.keys()), start="2024-01-01", progress=False)['Close']
+            tickers_map = {a['symbol']: a['name'] for a in candidates}
+            df = yf.download(list(tickers_map.keys()), period="1y", progress=False)['Close']
             df.rename(columns=tickers_map, inplace=True)
             df.dropna(axis=1, how='all', inplace=True)
             df.ffill(inplace=True); df.bfill(inplace=True)
             
-            # 3. Markowitz Optimizasyonu
+            # İstatistikler
             returns = np.log(df / df.shift(1))
-            mean_ret_daily = returns.mean()
-            cov_matrix = returns.cov()
-            
-            # Dönemselleştirme
             trading_days = int(252 * (months / 12))
+            mean_ret = returns.mean() * trading_days
+            cov = returns.cov() * trading_days
             
-            mean_ret_period = mean_ret_daily * trading_days
-            cov_period = cov_matrix * trading_days
-            
-            # Simülasyon
-            num_ports = 3000
-            best_sharpe = -1
+            num_ports = 5000
+            best_score = -float('inf')
             best_weights = []
             
             for _ in range(num_ports):
                 w = np.random.random(len(df.columns))
                 w /= w.sum()
-                ret = np.sum(mean_ret_period * w)
-                vol = np.sqrt(np.dot(w.T, np.dot(cov_period, w)))
-                if vol == 0: continue
-                sharpe = ret / vol
-                if sharpe > best_sharpe:
-                    best_sharpe = sharpe
+                
+                port_ret = np.sum(mean_ret * w)
+                port_vol = np.sqrt(np.dot(w.T, np.dot(cov, w)))
+                
+                # --- STRATEJİ KARAR MEKANİZMASI ---
+                if "Muhafazakar" in risk_choice:
+                    score = -port_vol 
+                elif "Agresif" in risk_choice:
+                    score = port_ret
+                else: # Dengeli
+                    score = port_ret / port_vol if port_vol > 0 else 0
+                
+                if score > best_score:
+                    best_score = score
                     best_weights = w
             
-            # 4. Robo Sonuçları
-            robo_return_pct = np.sum(mean_ret_period * best_weights)
-            robo_risk_pct = np.sqrt(np.dot(best_weights.T, np.dot(cov_period, best_weights)))
+            # Sonuçlar
+            robo_ret_pct = np.sum(mean_ret * best_weights)
+            robo_risk_pct = np.sqrt(np.dot(best_weights.T, np.dot(cov, best_weights)))
             
-            net_return_robo = money * robo_return_pct
+            net_return_robo = money * robo_ret_pct
             total_robo = money + net_return_robo
             
-            with col_robo:
-                st.subheader("🦅 Robo-Advisor Sepeti")
-                st.metric(label="Optimize Sepet Getirisi (Beklenen)", 
-                          value=f"{total_robo:,.2f} TL", 
-                          delta=f"+{net_return_robo:,.2f} TL",
-                          delta_color="normal")
-                
-                risk_label = "Düşük" if robo_risk_pct < 0.05 else "Orta" if robo_risk_pct < 0.15 else "Yüksek"
-                st.caption(f"Risk Seviyesi: **{risk_label}** (Volatilite: %{robo_risk_pct*100:.1f})")
+            # --- SONUÇ GÖRÜNTÜLEME ---
+            st.subheader(f"📊 Analiz Sonucu ({risk_choice.split(' ')[1]} Mod)")
+            
+            c1, c2 = st.columns(2)
+            
+            # Banka Kartı
+            c1.info(f"🏦 **{rate_info['name']}**\n\n"
+                    f"Garanti Getiri: **{total_bank:,.0f} TL**\n"
+                    f"(Net Kazanç: +{net_return_bank:,.0f} TL)")
+            
+            # Robo Kartı
+            delta_color = "normal" if net_return_robo > net_return_bank else "off"
+            c2.success(f"🦅 **Akıllı Portföy**\n\n"
+                       f"Hedeflenen: **{total_robo:,.0f} TL**\n"
+                       f"(Beklenen Kazanç: +{net_return_robo:,.0f} TL)")
 
-            # --- BÖLÜM 3: DETAYLI RAPOR VE GRAFİKLER ---
             st.markdown("---")
-            
-            # Kıyaslama Grafiği
-            fig_comp = go.Figure()
-            fig_comp.add_trace(go.Bar(
-                x=["Banka / Katılım", "Akıllı Sepet"],
-                y=[net_return_bank, net_return_robo],
-                marker_color=['#95a5a6', '#27ae60'],
-                text=[f"{net_return_bank:,.0f} TL", f"{net_return_robo:,.0f} TL"],
-                textposition='auto'
-            ))
-            fig_comp.update_layout(title="Kazanç Karşılaştırması", yaxis_title="Tahmini Net Getiri (TL)")
-            
-            # Pasta Grafiği
-            portfolio = sorted(zip(df.columns, best_weights), key=lambda x:x[1], reverse=True)
-            labels = [p[0] for p in portfolio if p[1] > 0.01]
-            values = [p[1] for p in portfolio if p[1] > 0.01]
-            
-            fig_pie = px.pie(values=values, names=labels, title="Önerilen Varlık Dağılımı", hole=0.4)
-            
-            # Ekrana Bas
-            c1, c2 = st.columns([1, 1])
-            with c1:
-                st.plotly_chart(fig_comp, use_container_width=True)
-            with c2:
-                st.plotly_chart(fig_pie, use_container_width=True)
-                
-            # Tablo
-            st.subheader("📝 Varlık Dağılım Detayı")
-            final_data = []
-            for asset, w in portfolio:
-                if w < 0.01: continue
-                amt = money * w
-                final_data.append({"Varlık": asset, "Oran": f"%{w*100:.1f}", "Tutar": f"{amt:,.2f} TL"})
-            
-            st.dataframe(pd.DataFrame(final_data), use_container_width=True)
 
-            st.warning(f"⚠️ **Yasal Uyarı:** Yukarıdaki veriler geçmiş piyasa hareketlerine ve ortalama banka oranlarına ({annual_rate*100}%) dayanmaktadır. Gelecek getiriyi garanti etmez.")
-        
+            # Grafikler
+            tab1, tab2 = st.tabs(["📈 Karşılaştırma", "🍰 Sepet Detayı"])
+            
+            with tab1:
+                fig_bar = go.Figure(data=[
+                    go.Bar(name='Banka', x=['Net Kazanç'], y=[net_return_bank], marker_color='#95a5a6', text=[f"{net_return_bank:,.0f} TL"]),
+                    go.Bar(name='Robo', x=['Net Kazanç'], y=[net_return_robo], marker_color='#27ae60', text=[f"{net_return_robo:,.0f} TL"])
+                ])
+                fig_bar.update_layout(title="Hangi Seçenek Daha Kârlı?", barmode='group')
+                st.plotly_chart(fig_bar, use_container_width=True)
+                
+            with tab2:
+                portfolio = sorted(zip(df.columns, best_weights), key=lambda x:x[1], reverse=True)
+                labels = [p[0] for p in portfolio if p[1] > 0.01]
+                values = [p[1] for p in portfolio if p[1] > 0.01]
+                
+                c_pie, c_table = st.columns([1, 1])
+                with c_pie:
+                    fig_pie = px.pie(values=values, names=labels, title="Varlık Dağılımı", hole=0.4)
+                    st.plotly_chart(fig_pie, use_container_width=True)
+                with c_table:
+                    st.write("**Dağılım Tablosu**")
+                    final_data = []
+                    for asset, w in portfolio:
+                        if w < 0.01: continue
+                        final_data.append({"Varlık": asset, "Oran": f"%{w*100:.1f}", "Tutar": f"{money*w:,.2f} TL"})
+                    st.dataframe(pd.DataFrame(final_data), hide_index=True)
+
         except Exception as e:
-            st.error(f"Hata oluştu: {e}. Lütfen sayfayı yenileyip tekrar deneyin.")
+            st.error(f"Hata oluştu: {e}. Lütfen sayfayı yenileyin.")
