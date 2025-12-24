@@ -8,43 +8,61 @@ import feedparser
 from textblob import TextBlob
 
 # ==========================================
-# ⚙️ AYARLAR
+# ⚙️ 1. AYARLAR
 # ==========================================
 st.set_page_config(page_title="Finans Asistanı", page_icon="🏦", layout="wide")
 
 # ==========================================
-# 🧹 TEMİZLİK ROBOTU (GÖRÜNMEZLİK KODU)
+# 🧹 2. NÜKLEER TEMİZLİK (CSS & JS)
 # ==========================================
-# Bu kısım, Streamlit'in tüm menülerini ve "Manage App" yazılarını gizler.
 hide_streamlit_style = """
 <style>
-    /* 1. En üstteki renkli çizgiyi ve menüyü gizle */
-    header {visibility: hidden !important;}
+    /* 1. Ana Başlık ve Çubuk */
+    header {visibility: hidden !important; height: 0px !important;}
     [data-testid="stHeader"] {display: none !important;}
     
-    /* 2. Sağ üstteki 'Manage App', 'Deploy' ve üç noktayı gizle */
+    /* 2. Sağ Üst Menü ve Toolbar */
     [data-testid="stToolbar"] {display: none !important;}
     .stDeployButton {display: none !important;}
     #MainMenu {visibility: hidden !important;}
     
-    /* 3. En alttaki 'Made with Streamlit' yazısını gizle */
+    /* 3. Alt Bilgi */
     footer {visibility: hidden !important;}
     [data-testid="stFooter"] {display: none !important;}
     
-    /* 4. Kenar boşluklarını sıfırla (Tam ekran uygulama hissi) */
+    /* 4. Streamlit Cloud Çerçevesi (Manage App Yazısı) */
+    .viewerBadge_container__1QSob {display: none !important;}
+    [data-testid="stDecoration"] {display: none !important;}
+    
+    /* 5. Mobildeki Boşlukları Yok Et */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 0rem !important;
     }
 </style>
+
+<script>
+    // JavaScript ile zorla gizleme (CSS yetmezse devreye girer)
+    const observer = new MutationObserver(() => {
+        const header = document.querySelector('header');
+        if (header) header.style.display = 'none';
+        
+        const footer = document.querySelector('footer');
+        if (footer) footer.style.display = 'none';
+        
+        const toolbar = document.querySelector('[data-testid="stToolbar"]');
+        if (toolbar) toolbar.style.display = 'none';
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+</script>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # ==========================================
-# ... UYGULAMA KODLARI ...
+# 🏦 3. VARLIK HAVUZLARI
 # ==========================================
 
-# 1. SABİT VARLIKLAR
+# A. SABİT VARLIKLAR
 BASE_ASSETS = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True, "search_term": "USDTRY currency"},
     {"symbol": "EURTRY=X", "name": "EURO (EUR)", "cat": "Döviz", "halal": True, "search_term": "EURTRY currency"},
@@ -52,7 +70,7 @@ BASE_ASSETS = [
     {"symbol": "SI=F", "name": "GÜMÜŞ (Ons)", "cat": "Emtia", "halal": True, "search_term": "Silver price forecast"}
 ]
 
-# 2. BIST HAVUZU
+# B. BIST HAVUZU
 BIST_POOL = [
     {"symbol": "THYAO.IS", "name": "THY", "cat": "Borsa", "halal": True},
     {"symbol": "BIMAS.IS", "name": "BIM", "cat": "Borsa", "halal": True},
@@ -73,7 +91,7 @@ BIST_POOL = [
     {"symbol": "AEFES.IS", "name": "ANADOLU EFES", "cat": "Borsa", "halal": False}
 ]
 
-# 3. KRİPTO HAVUZU
+# C. KRİPTO HAVUZU
 CRYPTO_POOL = [
     {"symbol": "BTC-USD", "name": "BITCOIN", "cat": "Kripto", "halal": True},
     {"symbol": "ETH-USD", "name": "ETHEREUM", "cat": "Kripto", "halal": True},
@@ -88,7 +106,9 @@ CRYPTO_POOL = [
     {"symbol": "MATIC-USD", "name": "POLYGON", "cat": "Kripto", "halal": True}
 ]
 
-# --- YARDIMCI FONKSİYONLAR ---
+# ==========================================
+# 🛠️ 4. YARDIMCI FONKSİYONLAR
+# ==========================================
 def format_tl(value):
     return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -107,11 +127,11 @@ def analyze_news_sentiment(search_term):
     except: return 0
 
 # ==========================================
-# 📱 ANA EKRAN
+# 📱 5. ANA EKRAN & ARAYÜZ
 # ==========================================
 st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Finans Asistanı</h1>", unsafe_allow_html=True)
 
-# İMZA
+# İMZA & UYARI
 st.markdown("""
 <div style='text-align: center; background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-size: 0.9em; color: #555;'>
     <strong>Mücahit Aydın</strong> tarafından yapay zeka destekli hazırlanmıştır.<br>
@@ -174,18 +194,25 @@ with st.container():
 
 st.divider()
 
+# ==========================================
+# 🧠 6. HESAPLAMA MOTORU
+# ==========================================
 if btn_run:
+    # --- BANKA HESABI ---
     annual_rate = user_rate / 100.0
     gross_return = money * annual_rate * (months / 12)
     net_return_bank = gross_return * 0.95 
     total_bank = money + net_return_bank
     
+    # --- VARLIK SEÇİMİ ---
     final_candidates = []
     
+    # 1. Sabit Varlıklar
     for asset in BASE_ASSETS:
         if asset['cat'] == 'Döviz' and use_forex: final_candidates.append(asset)
         if asset['cat'] == 'Emtia' and use_commodity: final_candidates.append(asset)
     
+    # --- TARAMA FONKSİYONU ---
     def pick_top_3(pool, is_stock=True):
         filtered_pool = [s for s in pool if (s['halal'] if is_halal else True)]
         tickers = {s['symbol']: s['name'] for s in filtered_pool}
@@ -207,6 +234,7 @@ if btn_run:
             return selected_assets
         except: return []
 
+    # 2. Borsa Taraması
     if use_stock:
         with st.status("🏢 Borsa İstanbul Taranıyor...", expanded=True) as status:
             picks = pick_top_3(BIST_POOL, is_stock=True)
@@ -216,6 +244,7 @@ if btn_run:
                 st.write(f"✅ Seçilen Hisseler: **{names}**")
             status.update(label="✅ Borsa Taraması Bitti", state="complete", expanded=False)
 
+    # 3. Kripto Taraması
     if use_crypto:
         with st.status("🪙 Kripto Piyasası Taranıyor...", expanded=True) as status:
             picks = pick_top_3(CRYPTO_POOL, is_stock=False)
@@ -229,6 +258,7 @@ if btn_run:
         st.error("⚠️ Yeterli varlık bulunamadı. Lütfen seçimlerinizi kontrol edin.")
         st.stop()
         
+    # --- HABER ANALİZİ ---
     sentiment_scores = {}
     if use_sentiment:
         with st.status("📰 Haberler Okunuyor...", expanded=True) as status:
@@ -241,6 +271,7 @@ if btn_run:
                     sentiment_scores[cand['symbol']] = 0
             status.update(label="✅ Duygu Analizi Tamamlandı!", state="complete", expanded=False)
 
+    # --- MARKOWITZ OPTİMİZASYONU ---
     with st.spinner('Portföy Optimize Ediliyor...'):
         try:
             tickers_map = {a['symbol']: a['name'] for a in final_candidates}
@@ -258,6 +289,7 @@ if btn_run:
             best_score = -float('inf')
             best_weights = []
             
+            # Dinamik Kısıt (Dynamic Constraint)
             if "Koruyucu" in risk_choice: max_w = 0.40 
             elif "Dengeli" in risk_choice: max_w = 0.60 
             else: max_w = 1.00 
@@ -265,15 +297,19 @@ if btn_run:
             for _ in range(num_ports):
                 w = np.random.random(len(df.columns))
                 w /= w.sum()
+                
+                # Tek bir varlık max_w'yi geçemez
                 if np.max(w) > max_w: continue 
                 
                 port_ret = np.sum(mean_ret * w)
                 port_vol = np.sqrt(np.dot(w.T, np.dot(cov, w)))
                 
+                # Matematiksel Puanlama
                 if "Koruyucu" in risk_choice: math_score = -port_vol 
                 elif "Büyüme" in risk_choice: math_score = port_ret
                 else: math_score = port_ret / port_vol if port_vol > 0 else 0
                 
+                # Haber Puanı Etkisi
                 sentiment_impact = 0
                 if use_sentiment:
                     for idx, col in enumerate(df.columns):
@@ -294,6 +330,7 @@ if btn_run:
             net_return_robo = money * robo_ret_pct
             total_robo = money + net_return_robo
             
+            # --- SONUÇ GÖRÜNTÜLEME ---
             c1, c2 = st.columns(2)
             c1.info(f"🏦 **{bank_label}**")
             c1.metric("Garanti Tutar", f"{format_tl(total_bank)} TL", f"+{format_tl(net_return_bank)} TL")
@@ -304,6 +341,7 @@ if btn_run:
             
             st.markdown("---")
             
+            # Haber Raporu
             if use_sentiment:
                 with st.expander("📰 Piyasa Duygu Raporu", expanded=True):
                     st.caption("🟢: Olumlu (>0.05) | 🔴: Olumsuz (<-0.05) | ⚪: Nötr")
@@ -321,6 +359,7 @@ if btn_run:
                             st.markdown(f"**{name}**")
                             st.markdown(f":{color}[{icon}] ({score:.2f})")
 
+            # Grafikler
             tab1, tab2 = st.tabs(["📈 Kârlılık", "🍰 Detaylı Kazanç Tablosu"])
             with tab1:
                 fig_bar = go.Figure(data=[
