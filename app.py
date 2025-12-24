@@ -10,9 +10,9 @@ from textblob import TextBlob
 # ==========================================
 # ⚙️ AYARLAR
 # ==========================================
-st.set_page_config(page_title="Finans Asistanı V18", page_icon="🏦", layout="wide")
+st.set_page_config(page_title="Finans Asistanı V18.1", page_icon="🏦", layout="wide")
 
-# 1. SABİT VARLIKLAR (Döviz & Emtia)
+# 1. SABİT VARLIKLAR
 BASE_ASSETS = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True, "search_term": "USDTRY currency"},
     {"symbol": "EURTRY=X", "name": "EURO (EUR)", "cat": "Döviz", "halal": True, "search_term": "EURTRY currency"},
@@ -20,7 +20,7 @@ BASE_ASSETS = [
     {"symbol": "SI=F", "name": "GÜMÜŞ (Ons)", "cat": "Emtia", "halal": True, "search_term": "Silver price forecast"}
 ]
 
-# 2. BIST HAVUZU (Hisse Senedi Tarama)
+# 2. BIST HAVUZU
 BIST_POOL = [
     {"symbol": "THYAO.IS", "name": "THY", "cat": "Borsa", "halal": True},
     {"symbol": "BIMAS.IS", "name": "BIM", "cat": "Borsa", "halal": True},
@@ -41,7 +41,7 @@ BIST_POOL = [
     {"symbol": "AEFES.IS", "name": "ANADOLU EFES", "cat": "Borsa", "halal": False}
 ]
 
-# 3. KRİPTO HAVUZU (Kripto Tarama - YENİ)
+# 3. KRİPTO HAVUZU
 CRYPTO_POOL = [
     {"symbol": "BTC-USD", "name": "BITCOIN", "cat": "Kripto", "halal": True},
     {"symbol": "ETH-USD", "name": "ETHEREUM", "cat": "Kripto", "halal": True},
@@ -50,11 +50,16 @@ CRYPTO_POOL = [
     {"symbol": "XRP-USD", "name": "RIPPLE", "cat": "Kripto", "halal": True},
     {"symbol": "ADA-USD", "name": "CARDANO", "cat": "Kripto", "halal": True},
     {"symbol": "AVAX-USD", "name": "AVALANCHE", "cat": "Kripto", "halal": True},
-    {"symbol": "DOGE-USD", "name": "DOGE", "cat": "Kripto", "halal": False}, # Genelde spekülatif
+    {"symbol": "DOGE-USD", "name": "DOGE", "cat": "Kripto", "halal": False},
     {"symbol": "DOT-USD", "name": "POLKADOT", "cat": "Kripto", "halal": True},
     {"symbol": "LINK-USD", "name": "CHAINLINK", "cat": "Kripto", "halal": True},
     {"symbol": "MATIC-USD", "name": "POLYGON", "cat": "Kripto", "halal": True}
 ]
+
+# --- YARDIMCI FONKSİYONLAR ---
+def format_tl(value):
+    """Türk Lirası Formatı: Binlik için nokta, kuruş için virgül"""
+    return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 def analyze_news_sentiment(search_term):
     try:
@@ -75,14 +80,13 @@ def analyze_news_sentiment(search_term):
 # ==========================================
 st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Finansal Asistan</h1>", unsafe_allow_html=True)
 
-# --- İMZA VE UYARI BÖLÜMÜ ---
+# İMZA
 st.markdown("""
 <div style='text-align: center; background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-size: 0.9em; color: #555;'>
     <strong>Mücahit Aydın</strong> tarafından yapay zeka destekli hazırlanmıştır.<br>
     ⚠️ <em>Burada yer alan bilgiler kesinlikle yatırım tavsiyesi değildir, bilgilendirme ve simülasyon amaçlıdır.</em>
 </div>
 """, unsafe_allow_html=True)
-# ----------------------------
 
 st.divider()
 
@@ -91,8 +95,12 @@ with st.container():
     
     with col1:
         st.subheader("1. Parametreler")
-        # Girdi Alanı (Açıklama Kaldırıldı)
+        
+        # --- GİRİŞ ALANI (GÜNCELLENDİ) ---
         money = st.number_input("💰 Yatırım Tutarı (TL)", min_value=1000, value=100000, step=1000)
+        # Anlık Format Göstergesi (Kullanıcı ne yazdığını görsün)
+        st.info(f"Girilen Tutar: **{format_tl(money)} TL**") 
+        # ---------------------------------
         
         duration_options = {"1 Ay": 1, "3 Ay": 3, "6 Ay": 6, "1 Yıl": 12}
         selected_duration_label = st.selectbox("⏳ Vade Seçimi", list(duration_options.keys()), index=3)
@@ -101,7 +109,7 @@ with st.container():
         st.markdown("---")
         is_halal = st.toggle("İslami Hassasiyet (Katılım Modu)", value=True)
         
-        st.info("👇 Banka Oranı (Manuel Giriş)")
+        st.write("👇 Banka Oranı (Manuel Giriş)")
         st.markdown("""<a href="https://www.hangikredi.com/yatirim-araclari/mevduat-faiz-oranlari" target="_blank" style="text-decoration: none;"><div style="background-color: #f0f2f6; padding: 5px; border-radius: 5px; text-align: center; border: 1px solid #d0d0d0; font-size:12px;">🔗 Oranları Gör</div></a>""", unsafe_allow_html=True)
         
         if is_halal:
@@ -148,7 +156,7 @@ if btn_run:
     # --- ADIM 1: VARLIK SEÇİMİ VE TARAMA ---
     final_candidates = []
     
-    # 1. Sabit Varlıkları Ekle
+    # 1. Sabit Varlıklar
     for asset in BASE_ASSETS:
         if asset['cat'] == 'Döviz' and use_forex: final_candidates.append(asset)
         if asset['cat'] == 'Emtia' and use_commodity: final_candidates.append(asset)
@@ -161,13 +169,10 @@ if btn_run:
         try:
             data = yf.download(list(tickers.keys()), period="6mo", progress=False)['Close']
             
-            # Kriter: Koruyucu ise Düşük Volatilite, Büyüme ise Yüksek Getiri
             if "Koruyucu" in risk_choice:
-                # Standart Sapma (Volatilite) düşük olanlar
                 metric = data.pct_change().std()
                 top_3 = metric.sort_values(ascending=True).head(3).index.tolist()
             else:
-                # Ortalama Getiri yüksek olanlar
                 metric = data.pct_change().mean()
                 top_3 = metric.sort_values(ascending=False).head(3).index.tolist()
                 
@@ -181,7 +186,7 @@ if btn_run:
             return selected_assets
         except: return []
 
-    # 2. BIST Taraması
+    # 2. Taramalar
     if use_stock:
         with st.status("🏢 Borsa İstanbul Taranıyor...", expanded=True) as status:
             picks = pick_top_3(BIST_POOL, is_stock=True)
@@ -191,7 +196,6 @@ if btn_run:
                 st.write(f"✅ Seçilen Hisseler: **{names}**")
             status.update(label="✅ Borsa Taraması Bitti", state="complete", expanded=False)
 
-    # 3. Kripto Taraması (YENİ)
     if use_crypto:
         with st.status("🪙 Kripto Piyasası Taranıyor...", expanded=True) as status:
             picks = pick_top_3(CRYPTO_POOL, is_stock=False)
@@ -277,15 +281,14 @@ if btn_run:
             # --- SONUÇ EKRANI ---
             c1, c2 = st.columns(2)
             c1.info(f"🏦 **{bank_label}**")
-            c1.metric("Garanti Tutar", f"{total_bank:,.2f} TL", f"+{net_return_bank:,.2f} TL")
+            c1.metric("Garanti Tutar", f"{format_tl(total_bank)} TL", f"+{format_tl(net_return_bank)} TL")
             
             delta_color = "normal" if net_return_robo > net_return_bank else "off"
             c2.success(f"🦅 **Akıllı Portföy ({risk_choice.split(' ')[1]})**")
-            c2.metric("Tahmini Tutar", f"{total_robo:,.2f} TL", f"+{net_return_robo:,.2f} TL", delta_color=delta_color)
+            c2.metric("Tahmini Tutar", f"{format_tl(total_robo)} TL", f"+{format_tl(net_return_robo)} TL", delta_color=delta_color)
             
             st.markdown("---")
             
-            # Sentiment Raporu
             if use_sentiment:
                 with st.expander("📰 Piyasa Duygu Raporu", expanded=True):
                     st.caption("🟢: Olumlu (>0.05) | 🔴: Olumsuz (<-0.05) | ⚪: Nötr")
@@ -306,12 +309,11 @@ if btn_run:
             tab1, tab2 = st.tabs(["📈 Kârlılık", "🍰 Detaylı Kazanç Tablosu"])
             with tab1:
                 fig_bar = go.Figure(data=[
-                    go.Bar(name='Banka', x=['Tutar'], y=[total_bank], marker_color='#95a5a6', text=[f"{total_bank:,.0f}"]),
-                    go.Bar(name='Robo', x=['Tutar'], y=[total_robo], marker_color='#27ae60', text=[f"{total_robo:,.0f}"])
+                    go.Bar(name='Banka', x=['Tutar'], y=[total_bank], marker_color='#95a5a6', text=[f"{format_tl(total_bank)} TL"]),
+                    go.Bar(name='Robo', x=['Tutar'], y=[total_robo], marker_color='#27ae60', text=[f"{format_tl(total_robo)} TL"])
                 ])
                 st.plotly_chart(fig_bar, use_container_width=True)
             with tab2:
-                # Pasta
                 portfolio = sorted(zip(df.columns, best_weights), key=lambda x:x[1], reverse=True)
                 labels = [p[0] for p in portfolio if p[1] > 0.01]
                 values = [p[1] for p in portfolio if p[1] > 0.01]
@@ -330,10 +332,6 @@ if btn_run:
                         trend = "🔥" if s_score > 0.05 else "❄️" if s_score < -0.05 else "➖"
                         
                         yatirilan = money * w
-                        
-                        # Basit Getiri Dağılımı (Daha doğru bir gösterim için portföy getirisini ağırlığa göre böldük)
-                        # Not: Gerçekte her varlığın kendi beklenen getirisi farklıdır ama
-                        # burada toplam portföy getirisini, varlığın payına göre yansıtıyoruz.
                         portfoy_toplam_kar_orani = robo_ret_pct 
                         kazanc = yatirilan * portfoy_toplam_kar_orani
                         toplam = yatirilan + kazanc
@@ -341,9 +339,9 @@ if btn_run:
                         final_data.append({
                             "Varlık": f"{asset} {trend}", 
                             "Oran": f"%{w*100:.1f}", 
-                            "Yatırılan Para": f"{yatirilan:,.2f} TL", 
-                            "Tahmini Kâr": f"+{kazanc:,.2f} TL",
-                            "Vade Sonu": f"{toplam:,.2f} TL"
+                            "Yatırılan Para": f"{format_tl(yatirilan)} TL", 
+                            "Tahmini Kâr": f"+{format_tl(kazanc)} TL",
+                            "Vade Sonu": f"{format_tl(toplam)} TL"
                         })
                     st.dataframe(pd.DataFrame(final_data), hide_index=True)
 
