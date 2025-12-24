@@ -10,7 +10,38 @@ from textblob import TextBlob
 # ==========================================
 # ⚙️ AYARLAR
 # ==========================================
-st.set_page_config(page_title="Finans Asistanı V18.1", page_icon="🏦", layout="wide")
+st.set_page_config(page_title="Finans Asistanı", page_icon="🏦", layout="wide")
+
+# ==========================================
+# 🎨 PROFESYONEL TEMİZLİK (GÖRÜNMEZLİK PELERİNİ)
+# ==========================================
+hide_streamlit_style = """
+<style>
+/* Üstteki renkli şeridi gizle */
+header {visibility: hidden;}
+
+/* Sağ üstteki hamburger menüyü ve 'Fork' düğmelerini gizle */
+#MainMenu {visibility: hidden;}
+.stDeployButton {display:none;}
+
+/* En alttaki 'Made with Streamlit' yazısını gizle */
+footer {visibility: hidden;}
+
+/* Mobilde sağ üstte çıkan 'Manage App' yazısını gizle */
+[data-testid="stToolbar"] {display: none;}
+
+/* Sayfanın üst boşluğunu al (Daha app gibi dursun) */
+.block-container {
+    padding-top: 1rem;
+    padding-bottom: 0rem;
+}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+# ==========================================
+# ... KODUN GERİ KALANI AYNI ...
+# ==========================================
 
 # 1. SABİT VARLIKLAR
 BASE_ASSETS = [
@@ -58,7 +89,6 @@ CRYPTO_POOL = [
 
 # --- YARDIMCI FONKSİYONLAR ---
 def format_tl(value):
-    """Türk Lirası Formatı: Binlik için nokta, kuruş için virgül"""
     return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 def analyze_news_sentiment(search_term):
@@ -96,11 +126,8 @@ with st.container():
     with col1:
         st.subheader("1. Parametreler")
         
-        # --- GİRİŞ ALANI (GÜNCELLENDİ) ---
         money = st.number_input("💰 Yatırım Tutarı (TL)", min_value=1000, value=100000, step=1000)
-        # Anlık Format Göstergesi (Kullanıcı ne yazdığını görsün)
         st.info(f"Girilen Tutar: **{format_tl(money)} TL**") 
-        # ---------------------------------
         
         duration_options = {"1 Ay": 1, "3 Ay": 3, "6 Ay": 6, "1 Yıl": 12}
         selected_duration_label = st.selectbox("⏳ Vade Seçimi", list(duration_options.keys()), index=3)
@@ -147,35 +174,28 @@ with st.container():
 st.divider()
 
 if btn_run:
-    # Banka Hesabı
     annual_rate = user_rate / 100.0
     gross_return = money * annual_rate * (months / 12)
     net_return_bank = gross_return * 0.95 
     total_bank = money + net_return_bank
     
-    # --- ADIM 1: VARLIK SEÇİMİ VE TARAMA ---
     final_candidates = []
     
-    # 1. Sabit Varlıklar
     for asset in BASE_ASSETS:
         if asset['cat'] == 'Döviz' and use_forex: final_candidates.append(asset)
         if asset['cat'] == 'Emtia' and use_commodity: final_candidates.append(asset)
     
-    # Fonksiyon: En iyi 3'ü seçen motor
     def pick_top_3(pool, is_stock=True):
         filtered_pool = [s for s in pool if (s['halal'] if is_halal else True)]
         tickers = {s['symbol']: s['name'] for s in filtered_pool}
-        
         try:
             data = yf.download(list(tickers.keys()), period="6mo", progress=False)['Close']
-            
             if "Koruyucu" in risk_choice:
                 metric = data.pct_change().std()
                 top_3 = metric.sort_values(ascending=True).head(3).index.tolist()
             else:
                 metric = data.pct_change().mean()
                 top_3 = metric.sort_values(ascending=False).head(3).index.tolist()
-                
             selected_assets = []
             for sym in top_3:
                 obj = next((item for item in filtered_pool if item["symbol"] == sym), None)
@@ -186,7 +206,6 @@ if btn_run:
             return selected_assets
         except: return []
 
-    # 2. Taramalar
     if use_stock:
         with st.status("🏢 Borsa İstanbul Taranıyor...", expanded=True) as status:
             picks = pick_top_3(BIST_POOL, is_stock=True)
@@ -209,7 +228,6 @@ if btn_run:
         st.error("⚠️ Yeterli varlık bulunamadı. Lütfen seçimlerinizi kontrol edin.")
         st.stop()
         
-    # --- ADIM 2: HABER ANALİZİ ---
     sentiment_scores = {}
     if use_sentiment:
         with st.status("📰 Haberler Okunuyor...", expanded=True) as status:
@@ -222,7 +240,6 @@ if btn_run:
                     sentiment_scores[cand['symbol']] = 0
             status.update(label="✅ Duygu Analizi Tamamlandı!", state="complete", expanded=False)
 
-    # --- ADIM 3: OPTİMİZASYON ---
     with st.spinner('Portföy Optimize Ediliyor...'):
         try:
             tickers_map = {a['symbol']: a['name'] for a in final_candidates}
@@ -240,7 +257,6 @@ if btn_run:
             best_score = -float('inf')
             best_weights = []
             
-            # Dinamik Kısıt
             if "Koruyucu" in risk_choice: max_w = 0.40 
             elif "Dengeli" in risk_choice: max_w = 0.60 
             else: max_w = 1.00 
@@ -248,7 +264,6 @@ if btn_run:
             for _ in range(num_ports):
                 w = np.random.random(len(df.columns))
                 w /= w.sum()
-                
                 if np.max(w) > max_w: continue 
                 
                 port_ret = np.sum(mean_ret * w)
@@ -278,7 +293,6 @@ if btn_run:
             net_return_robo = money * robo_ret_pct
             total_robo = money + net_return_robo
             
-            # --- SONUÇ EKRANI ---
             c1, c2 = st.columns(2)
             c1.info(f"🏦 **{bank_label}**")
             c1.metric("Garanti Tutar", f"{format_tl(total_bank)} TL", f"+{format_tl(net_return_bank)} TL")
