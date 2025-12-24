@@ -13,34 +13,35 @@ from textblob import TextBlob
 st.set_page_config(page_title="Finans Asistanı", page_icon="🏦", layout="wide")
 
 # ==========================================
-# 🎨 PROFESYONEL TEMİZLİK (GÖRÜNMEZLİK PELERİNİ)
+# 🧹 TEMİZLİK ROBOTU (GÖRÜNMEZLİK KODU)
 # ==========================================
+# Bu kısım, Streamlit'in tüm menülerini ve "Manage App" yazılarını gizler.
 hide_streamlit_style = """
 <style>
-/* Üstteki renkli şeridi gizle */
-header {visibility: hidden;}
-
-/* Sağ üstteki hamburger menüyü ve 'Fork' düğmelerini gizle */
-#MainMenu {visibility: hidden;}
-.stDeployButton {display:none;}
-
-/* En alttaki 'Made with Streamlit' yazısını gizle */
-footer {visibility: hidden;}
-
-/* Mobilde sağ üstte çıkan 'Manage App' yazısını gizle */
-[data-testid="stToolbar"] {display: none;}
-
-/* Sayfanın üst boşluğunu al (Daha app gibi dursun) */
-.block-container {
-    padding-top: 1rem;
-    padding-bottom: 0rem;
-}
+    /* 1. En üstteki renkli çizgiyi ve menüyü gizle */
+    header {visibility: hidden !important;}
+    [data-testid="stHeader"] {display: none !important;}
+    
+    /* 2. Sağ üstteki 'Manage App', 'Deploy' ve üç noktayı gizle */
+    [data-testid="stToolbar"] {display: none !important;}
+    .stDeployButton {display: none !important;}
+    #MainMenu {visibility: hidden !important;}
+    
+    /* 3. En alttaki 'Made with Streamlit' yazısını gizle */
+    footer {visibility: hidden !important;}
+    [data-testid="stFooter"] {display: none !important;}
+    
+    /* 4. Kenar boşluklarını sıfırla (Tam ekran uygulama hissi) */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+    }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # ==========================================
-# ... KODUN GERİ KALANI AYNI ...
+# ... UYGULAMA KODLARI ...
 # ==========================================
 
 # 1. SABİT VARLIKLAR
@@ -108,7 +109,7 @@ def analyze_news_sentiment(search_term):
 # ==========================================
 # 📱 ANA EKRAN
 # ==========================================
-st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Finansal Asistan</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Finans Asistanı</h1>", unsafe_allow_html=True)
 
 # İMZA
 st.markdown("""
