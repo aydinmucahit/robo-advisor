@@ -14,65 +14,67 @@ import time
 st.set_page_config(page_title="Finans Asistanı", page_icon="🏦", layout="wide")
 
 # ==========================================
-# 🧹 2. REKLAM SÖKÜCÜ (KESİN ÇÖZÜM)
+# 🧹 2. REKLAM YOK EDİCİ (V24 - BALYOZ)
 # ==========================================
-# Bu kod, sayfanın altındaki Streamlit reklamını ve menüleri zorla yok eder.
 hide_st_style = """
 <style>
-    /* 1. Üst Menü ve Çizgiyi Yok Et */
+    /* Standart Gizlemeler */
     #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* 2. Alt Bilgiyi (Footer) Yok Et */
-    footer {visibility: hidden;}
-    
-    /* 3. 'Hosted with Streamlit' Yazısını Hedef Al ve Yok Et */
-    .stApp > header {display: none;}
-    .stApp > footer {display: none;}
-    
-    /* Bu sınıf ismi Streamlit'in reklam çubuğunundur */
-    div[class*="viewerBadge"] {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-    }
-    
-    /* Sağ üstteki butonları gizle */
+    /* Geliştirici Araçlarını Yok Et */
     [data-testid="stToolbar"] {display: none !important;}
     [data-testid="stDecoration"] {display: none !important;}
     [data-testid="stStatusWidget"] {display: none !important;}
     
-    /* Mobilde tam ekran hissi için boşlukları al */
+    /* 'Hosted with Streamlit' Yazısını İçeren Alanlar */
+    .viewerBadge_container__1QSob {display: none !important;}
+    div[class^='viewerBadge'] {display: none !important;}
+    
+    /* Alt ve Üst Boşlukları Kapat */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 0rem !important;
         padding-bottom: 0rem !important;
     }
 </style>
 
 <script>
-    // JavaScript ile sayfa yüklendikten sonra reklamı avla ve sil
-    const observer = new MutationObserver(() => {
+    // JavaScript ile Sürekli Tarama ve İmha Etme
+    function killStreamlitBranding() {
         // Footer'ı bul ve sil
-        const footers = document.querySelectorAll('footer');
-        footers.forEach(f => f.remove());
+        var footer = document.querySelector("footer");
+        if(footer) { footer.remove(); }
 
-        // 'Hosted with Streamlit' rozetini bul ve sil (Class isminde viewerBadge geçen her şeyi siler)
-        const badges = document.querySelectorAll('[class*="viewerBadge"]');
-        badges.forEach(b => b.remove());
+        // 'Hosted with Streamlit' yazısını içeren tüm div'leri bul
+        var badges = document.querySelectorAll("div[class*='viewerBadge']");
+        badges.forEach(function(badge) {
+            badge.remove(); // Elementi tamamen sök at
+        });
         
         // Header'ı sil
-        const headers = document.querySelectorAll('header');
-        headers.forEach(h => h.remove());
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+        var header = document.querySelector("header");
+        if(header) { header.remove(); }
+        
+        // Toolbar'ı sil
+        var toolbar = document.querySelector("[data-testid='stToolbar']");
+        if(toolbar) { toolbar.remove(); }
+    }
+
+    // İlk açılışta çalıştır
+    killStreamlitBranding();
+
+    // Streamlit dinamik olduğu için her 50 milisaniyede bir tekrar kontrol et (Gözle görülmez)
+    setInterval(killStreamlitBranding, 50);
 </script>
 """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # ==========================================
-# 🏦 3. VARLIK HAVUZLARI
+# 3. KODUN GERİ KALANI (AYNEN KALSIN)
 # ==========================================
-
+# (BASE_ASSETS, BIST_POOL, CRYPTO_POOL ve diğer fonksiyonlar...)
+# Buraya dokunmayın, V18.1'deki gibi kalsın.
 BASE_ASSETS = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True, "search_term": "USDTRY currency"},
     {"symbol": "EURTRY=X", "name": "EURO (EUR)", "cat": "Döviz", "halal": True, "search_term": "EURTRY currency"},
@@ -80,6 +82,8 @@ BASE_ASSETS = [
     {"symbol": "SI=F", "name": "GÜMÜŞ (Ons)", "cat": "Emtia", "halal": True, "search_term": "Silver price forecast"}
 ]
 
+# ... Kalan kodları (BIST_POOL, CRYPTO_POOL, if btn_run vs.) aynen yapıştırın ...
+# (V23'teki kodun devamını buraya ekleyin)
 BIST_POOL = [
     {"symbol": "THYAO.IS", "name": "THY", "cat": "Borsa", "halal": True},
     {"symbol": "BIMAS.IS", "name": "BIM", "cat": "Borsa", "halal": True},
@@ -114,9 +118,6 @@ CRYPTO_POOL = [
     {"symbol": "MATIC-USD", "name": "POLYGON", "cat": "Kripto", "halal": True}
 ]
 
-# ==========================================
-# 4. YARDIMCI FONKSİYONLAR
-# ==========================================
 def format_tl(value):
     return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -134,12 +135,8 @@ def analyze_news_sentiment(search_term):
         return polarity_sum / count if count > 0 else 0
     except: return 0
 
-# ==========================================
-# 📱 5. ANA EKRAN & ARAYÜZ
-# ==========================================
 st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Finans Asistanı</h1>", unsafe_allow_html=True)
 
-# İMZA & UYARI
 st.markdown("""
 <div style='text-align: center; background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-size: 0.9em; color: #555;'>
     <strong>Mücahit Aydın</strong> tarafından yapay zeka destekli hazırlanmıştır.<br>
