@@ -6,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import feedparser
 from textblob import TextBlob
+from datetime import datetime, timedelta
 
 # ==========================================
 # ⚙️ 1. AYARLAR
@@ -49,7 +50,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # 🏦 3. VARLIK HAVUZLARI
 # ==========================================
 
-# A. SABİT VARLIKLAR (Semboller Yahoo Finance uyumlu olmalı)
+# A. SABİT VARLIKLAR
 BASE_ASSETS = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True, "search_term": "USDTRY currency"},
     {"symbol": "EURTRY=X", "name": "EURO (EUR)", "cat": "Döviz", "halal": True, "search_term": "EURTRY currency"},
@@ -166,6 +167,7 @@ with st.container():
         )
         
         st.write("")
+        st.markdown("**👇 Yatırım Araçları (Çoklu Seçim Yapabilirsiniz)**") # BAŞLIK EKLENDİ
         c_fx, c_comm, c_stk, c_cry = st.columns(4)
         with c_fx: use_forex = st.checkbox("Döviz", value=True)
         with c_comm: use_commodity = st.checkbox("Emtia", value=True)
@@ -202,21 +204,13 @@ if btn_run:
         filtered_pool = [s for s in pool if (s['halal'] if is_halal else True)]
         tickers = {s['symbol']: s['name'] for s in filtered_pool}
         try:
-            # yfinance MultiIndex sorununu çözmek için auto_adjust=True
             data = yf.download(list(tickers.keys()), period="6mo", progress=False, auto_adjust=True)
-            
-            # Veri Formatını Düzelt (Close sütununu bul)
             if isinstance(data.columns, pd.MultiIndex):
-                try:
-                    data = data['Close']
-                except KeyError:
-                    # Bazen Close yerine başka isimle gelir, tüm tabloyu al
-                    pass
-            elif 'Close' in data.columns:
-                data = data[['Close']]
+                try: data = data['Close']
+                except: pass
+            elif 'Close' in data.columns: data = data[['Close']]
 
-            if data.empty or data.shape[1] == 0:
-                return []
+            if data.empty or data.shape[1] == 0: return []
 
             if "Koruyucu" in risk_choice:
                 metric = data.pct_change().std()
@@ -235,7 +229,7 @@ if btn_run:
             return selected_assets
         except: return []
 
-    # 2. Borsa Taraması
+    # 2. Borsa & Kripto
     if use_stock:
         with st.status("🏢 Borsa İstanbul Taranıyor...", expanded=True) as status:
             picks = pick_top_3(BIST_POOL, is_stock=True)
@@ -245,7 +239,6 @@ if btn_run:
                 st.write(f"✅ Seçilen Hisseler: **{names}**")
             status.update(label="✅ Borsa Taraması Bitti", state="complete", expanded=False)
 
-    # 3. Kripto Taraması
     if use_crypto:
         with st.status("🪙 Kripto Piyasası Taranıyor...", expanded=True) as status:
             picks = pick_top_3(CRYPTO_POOL, is_stock=False)
@@ -272,7 +265,7 @@ if btn_run:
                     sentiment_scores[cand['symbol']] = 0
             status.update(label="✅ Duygu Analizi Tamamlandı!", state="complete", expanded=False)
 
-    # --- MARKOWITZ OPTİMİZASYONU (KESİN ÇÖZÜM) ---
+    # --- MARKOWITZ OPTİMİZASYONU (DINAMIK DAĞITIM) ---
     with st.spinner('Portföy Optimize Ediliyor...'):
         try:
             tickers_map = {a['symbol']: a['name'] for a in final_candidates}
@@ -280,32 +273,25 @@ if btn_run:
             # 1. Veriyi İndir
             raw_data = yf.download(list(tickers_map.keys()), period="1y", progress=False, auto_adjust=True)
             
-            # 2. Veri Yapısını Düzelt (Flatten MultiIndex)
+            # 2. Veri Yapısını Düzelt
             df = None
             if not raw_data.empty:
                 if isinstance(raw_data.columns, pd.MultiIndex):
-                    try:
-                        df = raw_data['Close']
-                    except KeyError:
-                        df = raw_data # Close yoksa direkt al
+                    try: df = raw_data['Close']
+                    except: df = raw_data
+                elif 'Close' in raw_data.columns:
+                    df = raw_data[['Close']]
                 else:
-                     if 'Close' in raw_data.columns:
-                         df = raw_data[['Close']]
-                     else:
-                         df = raw_data
+                    df = raw_data
             
-            # 3. Veri Yoksa Durdur
             if df is None or df.empty or df.shape[1] == 0:
-                st.error("⚠️ Yahoo Finance'den fiyat verisi alınamadı. (Seçilen varlıklar için piyasa kapalı veya veri eksik). Lütfen Borsa veya Kripto ekleyerek tekrar deneyin.")
+                st.error("⚠️ Fiyat verisi alınamadı.")
                 st.stop()
                 
-            # 4. Sütun Eşleştirme (Sadece map'te olan ve verisi gelenleri al)
-            # Bu adım, seçilen ama verisi gelmeyen (hayalet) varlıkları temizler
+            # 3. Sütun Eşleştirme & Temizlik
             valid_cols = [c for c in df.columns if c in tickers_map.keys()]
-            
-            # 5. Kritik Kontrol: Eğer temizlik sonrası el boş kalırsa
             if len(valid_cols) == 0:
-                 st.error("⚠️ Seçilen varlıkların fiyat verisine ulaşılamadı. (Özellikle Emtialarda Yahoo bazen anlık veri vermeyebilir).")
+                 st.error("⚠️ Seçilen varlıkların fiyat verisine ulaşılamadı.")
                  st.stop()
             
             df = df[valid_cols]
@@ -327,39 +313,56 @@ if btn_run:
             trading_days = int(252 * (months / 12))
             mean_ret = returns.mean() * trading_days
             
-            # -------------- TEK VARLIK VE ÇOKLU VARLIK AYRIMI --------------
-            
-            # Eğer sadece 1 varlığımız kaldıysa (Diğerleri elendiyse veya tek seçildiyse)
+            # TEK VARLIK DURUMU
             if len(df.columns) == 1:
-                best_weights = np.array([1.0]) # Para %100 buna gider
+                best_weights = np.array([1.0])
                 robo_ret_pct = mean_ret.values[0]
-                # Tek varlık riski = Standart sapma
                 robo_risk_pct = returns.std().values[0] * np.sqrt(trading_days)
             
-            # Eğer birden çok varlık varsa Simülasyon yap
+            # ÇOKLU VARLIK DURUMU (2+ Varlık için)
             else:
                 cov = returns.cov() * trading_days
-                num_ports = 3000
+                # Simülasyon Sayısını Artırarak Hassasiyeti Yükseltelim
+                num_ports = 5000 
                 best_score = -float('inf')
                 best_weights = []
                 
-                if "Koruyucu" in risk_choice: max_w = 0.40 
-                elif "Dengeli" in risk_choice: max_w = 0.60 
-                else: max_w = 1.00 
+                # Dinamik Kısıtlar (Yapay Zeka Zekası)
+                if "Koruyucu" in risk_choice: 
+                    # Koruyucu modda tek bir varlığa %40'tan fazla yatırma
+                    max_w = 0.40 
+                    # Ayrıca volatiliteyi (risk) cezalandırma katsayısı yüksek olsun
+                    risk_penalty = 2.0
+                elif "Dengeli" in risk_choice: 
+                    max_w = 0.60
+                    risk_penalty = 1.0
+                else: 
+                    # Büyüme modunda sınırları kaldır, risk cezası düşük
+                    max_w = 1.00 
+                    risk_penalty = 0.1
 
                 for _ in range(num_ports):
                     w = np.random.random(len(df.columns))
                     w /= w.sum()
                     
-                    if np.max(w) > max_w: continue 
+                    # Koruyucu/Dengeli modda çeşitlendirme zorunluluğu
+                    # Eğer sadece 2 varlık varsa ve Koruyucu seçildiyse:
+                    # %40 kısıtı çalışmaz (çünkü toplam %80 eder), o zaman max_w'yi esnetmemiz lazım.
+                    # Zeki Kontrol:
+                    current_max_w = max_w
+                    if len(df.columns) == 2 and max_w < 0.5:
+                        current_max_w = 0.6 # Mecburen en az biri %60 olacak
+                    
+                    if np.max(w) > current_max_w: continue 
                     
                     port_ret = np.sum(mean_ret * w)
                     port_vol = np.sqrt(np.dot(w.T, np.dot(cov, w)))
                     
-                    if "Koruyucu" in risk_choice: math_score = -port_vol 
-                    elif "Büyüme" in risk_choice: math_score = port_ret
-                    else: math_score = port_ret / port_vol if port_vol > 0 else 0
+                    # Sharpe Oranı Benzeri Skorlama
+                    # (Getiri) - (Risk * Ceza Katsayısı)
+                    math_score = port_ret - (port_vol * risk_penalty)
                     
+                    # Haber Puanı Etkisi
                     sentiment_impact = 0
                     if use_sentiment:
                         for idx, sym in enumerate(df.columns):
@@ -373,9 +376,13 @@ if btn_run:
                         best_score = final_score
                         best_weights = w
                 
-                # Eğer kısıtlar yüzünden hiç ağırlık bulamazsa eşit dağıt
+                # Eğer kısıtlar çok sıkıysa ve çözüm bulunamazsa Eşit Dağıtma yerine 
+                # Risk/Getiri dengesine göre basit ağırlıklandırma yap
                 if len(best_weights) == 0:
-                     best_weights = np.full(len(df.columns), 1.0/len(df.columns))
+                     # Volatilitesi düşük olana daha çok ver (Ters Varyans)
+                     vols = returns.std()
+                     inv_vols = 1 / vols
+                     best_weights = (inv_vols / inv_vols.sum()).values
                 
                 robo_ret_pct = np.sum(mean_ret * best_weights)
                 robo_risk_pct = np.sqrt(np.dot(best_weights.T, np.dot(cov, best_weights)))
@@ -423,7 +430,6 @@ if btn_run:
             with tab2:
                 asset_names = [tickers_map.get(sym, sym) for sym in df.columns]
                 
-                # Tek varlık ise ağırlık %100
                 if len(df.columns) == 1:
                     portfolio = [(asset_names[0], df.columns[0], 1.0)]
                 else:
