@@ -6,7 +6,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import feedparser
 from textblob import TextBlob
-import time
 
 # ==========================================
 # ⚙️ 1. AYARLAR
@@ -14,67 +13,43 @@ import time
 st.set_page_config(page_title="Finans Asistanı", page_icon="🏦", layout="wide")
 
 # ==========================================
-# 🧹 2. REKLAM YOK EDİCİ (V24 - BALYOZ)
+# 🧹 2. NÜKLEER TEMİZLİK (CSS & JS)
 # ==========================================
-hide_st_style = """
+hide_streamlit_style = """
 <style>
-    /* Standart Gizlemeler */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    /* Geliştirici Araçlarını Yok Et */
+    header {visibility: hidden !important; height: 0px !important;}
+    [data-testid="stHeader"] {display: none !important;}
     [data-testid="stToolbar"] {display: none !important;}
-    [data-testid="stDecoration"] {display: none !important;}
-    [data-testid="stStatusWidget"] {display: none !important;}
-    
-    /* 'Hosted with Streamlit' Yazısını İçeren Alanlar */
+    .stDeployButton {display: none !important;}
+    #MainMenu {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    [data-testid="stFooter"] {display: none !important;}
     .viewerBadge_container__1QSob {display: none !important;}
-    div[class^='viewerBadge'] {display: none !important;}
-    
-    /* Alt ve Üst Boşlukları Kapat */
+    [data-testid="stDecoration"] {display: none !important;}
     .block-container {
-        padding-top: 0rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 0rem !important;
     }
 </style>
-
 <script>
-    // JavaScript ile Sürekli Tarama ve İmha Etme
-    function killStreamlitBranding() {
-        // Footer'ı bul ve sil
-        var footer = document.querySelector("footer");
-        if(footer) { footer.remove(); }
-
-        // 'Hosted with Streamlit' yazısını içeren tüm div'leri bul
-        var badges = document.querySelectorAll("div[class*='viewerBadge']");
-        badges.forEach(function(badge) {
-            badge.remove(); // Elementi tamamen sök at
-        });
-        
-        // Header'ı sil
-        var header = document.querySelector("header");
-        if(header) { header.remove(); }
-        
-        // Toolbar'ı sil
-        var toolbar = document.querySelector("[data-testid='stToolbar']");
-        if(toolbar) { toolbar.remove(); }
-    }
-
-    // İlk açılışta çalıştır
-    killStreamlitBranding();
-
-    // Streamlit dinamik olduğu için her 50 milisaniyede bir tekrar kontrol et (Gözle görülmez)
-    setInterval(killStreamlitBranding, 50);
+    const observer = new MutationObserver(() => {
+        const header = document.querySelector('header');
+        if (header) header.style.display = 'none';
+        const footer = document.querySelector('footer');
+        if (footer) footer.style.display = 'none';
+        const toolbar = document.querySelector('[data-testid="stToolbar"]');
+        if (toolbar) toolbar.style.display = 'none';
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
 </script>
 """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # ==========================================
-# 3. KODUN GERİ KALANI (AYNEN KALSIN)
+# 🏦 3. VARLIK HAVUZLARI
 # ==========================================
-# (BASE_ASSETS, BIST_POOL, CRYPTO_POOL ve diğer fonksiyonlar...)
-# Buraya dokunmayın, V18.1'deki gibi kalsın.
+
+# A. SABİT VARLIKLAR
 BASE_ASSETS = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True, "search_term": "USDTRY currency"},
     {"symbol": "EURTRY=X", "name": "EURO (EUR)", "cat": "Döviz", "halal": True, "search_term": "EURTRY currency"},
@@ -82,8 +57,7 @@ BASE_ASSETS = [
     {"symbol": "SI=F", "name": "GÜMÜŞ (Ons)", "cat": "Emtia", "halal": True, "search_term": "Silver price forecast"}
 ]
 
-# ... Kalan kodları (BIST_POOL, CRYPTO_POOL, if btn_run vs.) aynen yapıştırın ...
-# (V23'teki kodun devamını buraya ekleyin)
+# B. BIST HAVUZU
 BIST_POOL = [
     {"symbol": "THYAO.IS", "name": "THY", "cat": "Borsa", "halal": True},
     {"symbol": "BIMAS.IS", "name": "BIM", "cat": "Borsa", "halal": True},
@@ -104,6 +78,7 @@ BIST_POOL = [
     {"symbol": "AEFES.IS", "name": "ANADOLU EFES", "cat": "Borsa", "halal": False}
 ]
 
+# C. KRİPTO HAVUZU
 CRYPTO_POOL = [
     {"symbol": "BTC-USD", "name": "BITCOIN", "cat": "Kripto", "halal": True},
     {"symbol": "ETH-USD", "name": "ETHEREUM", "cat": "Kripto", "halal": True},
@@ -118,6 +93,9 @@ CRYPTO_POOL = [
     {"symbol": "MATIC-USD", "name": "POLYGON", "cat": "Kripto", "halal": True}
 ]
 
+# ==========================================
+# 🛠️ 4. YARDIMCI FONKSİYONLAR
+# ==========================================
 def format_tl(value):
     return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -135,6 +113,9 @@ def analyze_news_sentiment(search_term):
         return polarity_sum / count if count > 0 else 0
     except: return 0
 
+# ==========================================
+# 📱 5. ANA EKRAN & ARAYÜZ
+# ==========================================
 st.markdown("<h1 style='text-align: center; color: #2c3e50;'>🏦 Finans Asistanı</h1>", unsafe_allow_html=True)
 
 st.markdown("""
@@ -151,7 +132,6 @@ with st.container():
     
     with col1:
         st.subheader("1. Parametreler")
-        
         money = st.number_input("💰 Yatırım Tutarı (TL)", min_value=1000, value=100000, step=1000)
         st.info(f"Girilen Tutar: **{format_tl(money)} TL**") 
         
@@ -189,8 +169,8 @@ with st.container():
         c_fx, c_comm, c_stk, c_cry = st.columns(4)
         with c_fx: use_forex = st.checkbox("Döviz", value=True)
         with c_comm: use_commodity = st.checkbox("Emtia", value=True)
-        with c_stk: use_stock = st.checkbox("Borsa (Oto-Seçim)", value=True, help="BIST havuzu taranır, en iyi 3 hisse seçilir.")
-        with c_cry: use_crypto = st.checkbox("Kripto (Oto-Seçim)", value=True, help="Kripto havuzu taranır, en iyi 3 coin seçilir.")
+        with c_stk: use_stock = st.checkbox("Borsa (Oto-Seçim)", value=True)
+        with c_cry: use_crypto = st.checkbox("Kripto (Oto-Seçim)", value=True)
         
         st.markdown("---")
         use_sentiment = st.checkbox("📰 **Haber Analizini Dahil Et**", value=True)
@@ -199,18 +179,25 @@ with st.container():
 
 st.divider()
 
+# ==========================================
+# 🧠 6. HESAPLAMA MOTORU
+# ==========================================
 if btn_run:
+    # --- BANKA HESABI ---
     annual_rate = user_rate / 100.0
     gross_return = money * annual_rate * (months / 12)
     net_return_bank = gross_return * 0.95 
     total_bank = money + net_return_bank
     
+    # --- VARLIK SEÇİMİ ---
     final_candidates = []
     
+    # 1. Sabit Varlıklar
     for asset in BASE_ASSETS:
         if asset['cat'] == 'Döviz' and use_forex: final_candidates.append(asset)
         if asset['cat'] == 'Emtia' and use_commodity: final_candidates.append(asset)
     
+    # --- TARAMA FONKSİYONU ---
     def pick_top_3(pool, is_stock=True):
         filtered_pool = [s for s in pool if (s['halal'] if is_halal else True)]
         tickers = {s['symbol']: s['name'] for s in filtered_pool}
@@ -232,6 +219,7 @@ if btn_run:
             return selected_assets
         except: return []
 
+    # 2. Borsa Taraması
     if use_stock:
         with st.status("🏢 Borsa İstanbul Taranıyor...", expanded=True) as status:
             picks = pick_top_3(BIST_POOL, is_stock=True)
@@ -241,6 +229,7 @@ if btn_run:
                 st.write(f"✅ Seçilen Hisseler: **{names}**")
             status.update(label="✅ Borsa Taraması Bitti", state="complete", expanded=False)
 
+    # 3. Kripto Taraması
     if use_crypto:
         with st.status("🪙 Kripto Piyasası Taranıyor...", expanded=True) as status:
             picks = pick_top_3(CRYPTO_POOL, is_stock=False)
@@ -250,10 +239,11 @@ if btn_run:
                 st.write(f"✅ Seçilen Coinler: **{names}**")
             status.update(label="✅ Kripto Taraması Bitti", state="complete", expanded=False)
 
-    if len(final_candidates) < 2:
+    if len(final_candidates) < 1:
         st.error("⚠️ Yeterli varlık bulunamadı. Lütfen seçimlerinizi kontrol edin.")
         st.stop()
         
+    # --- HABER ANALİZİ ---
     sentiment_scores = {}
     if use_sentiment:
         with st.status("📰 Haberler Okunuyor...", expanded=True) as status:
@@ -266,15 +256,60 @@ if btn_run:
                     sentiment_scores[cand['symbol']] = 0
             status.update(label="✅ Duygu Analizi Tamamlandı!", state="complete", expanded=False)
 
+    # --- MARKOWITZ OPTİMİZASYONU (DÜZELTİLMİŞ) ---
     with st.spinner('Portföy Optimize Ediliyor...'):
         try:
             tickers_map = {a['symbol']: a['name'] for a in final_candidates}
-            df = yf.download(list(tickers_map.keys()), period="1y", progress=False)['Close']
-            df.rename(columns=tickers_map, inplace=True)
-            df.dropna(axis=1, how='all', inplace=True)
-            df.ffill(inplace=True); df.bfill(inplace=True)
+            
+            # Veriyi indir
+            raw_data = yf.download(list(tickers_map.keys()), period="1y", progress=False)
+            
+            # Veri yapısını kontrol et (MultiIndex mi yoksa tekil mi)
+            if isinstance(raw_data, pd.DataFrame):
+                if isinstance(raw_data.columns, pd.MultiIndex):
+                    # Eğer 'Close' ana başlığı varsa onu al
+                    if 'Close' in raw_data.columns.levels[0]:
+                        df = raw_data['Close']
+                    else:
+                        df = raw_data
+                elif 'Close' in raw_data.columns:
+                    df = raw_data[['Close']] # Tek sütunlu DF olarak al
+                else:
+                    df = raw_data
+            else:
+                st.error("Veri formatı hatası.")
+                st.stop()
+
+            # --- Sütun İsimlerini Temizle ve Eşleştir ---
+            # Yahoo bazen sembolü değiştirerek getirir (örn: 'GC=F' -> 'GC=F' olarak kalır mı?)
+            # Elimizdeki tickers_map ile df.columns arasındaki kesişimi bulalım.
+            valid_cols = [c for c in df.columns if c in tickers_map.keys()]
+            
+            if len(valid_cols) == 0:
+                st.error("⚠️ Seçilen varlıklar için Yahoo Finance'den geçerli fiyat verisi alınamadı. Lütfen farklı varlıklar seçin veya Borsa/Kripto ekleyin.")
+                st.stop()
+                
+            df = df[valid_cols]
+            
+            # Boş verileri temizle
+            df.dropna(axis=0, how='any', inplace=True) # Satırda boşluk varsa o günü sil
+            
+            if df.empty:
+                st.error("⚠️ Veri temizliği sonrası eldeki veri seti boş kaldı. Tarihsel veri yetersiz.")
+                st.stop()
+
+            # İsimleri güncelle (Sembol -> İsim)
+            # Ama optimizasyon için sembolleri de tutmamız lazım.
+            # df sütunları şu an sembol (örn: 'GC=F').
             
             returns = np.log(df / df.shift(1))
+            returns.replace([np.inf, -np.inf], np.nan, inplace=True)
+            returns.dropna(inplace=True)
+
+            if returns.empty:
+                 st.error("⚠️ Yeterli tarihsel veri olmadığı için optimizasyon yapılamadı.")
+                 st.stop()
+
             trading_days = int(252 * (months / 12))
             mean_ret = returns.mean() * trading_days
             cov = returns.cov() * trading_days
@@ -283,13 +318,16 @@ if btn_run:
             best_score = -float('inf')
             best_weights = []
             
+            # Dinamik Kısıt
             if "Koruyucu" in risk_choice: max_w = 0.40 
             elif "Dengeli" in risk_choice: max_w = 0.60 
             else: max_w = 1.00 
 
+            # Simülasyon
             for _ in range(num_ports):
                 w = np.random.random(len(df.columns))
                 w /= w.sum()
+                
                 if np.max(w) > max_w: continue 
                 
                 port_ret = np.sum(mean_ret * w)
@@ -299,10 +337,11 @@ if btn_run:
                 elif "Büyüme" in risk_choice: math_score = port_ret
                 else: math_score = port_ret / port_vol if port_vol > 0 else 0
                 
+                # Haber Puanı Etkisi (DÜZELTİLMİŞ DÖNGÜ)
                 sentiment_impact = 0
                 if use_sentiment:
-                    for idx, col in enumerate(df.columns):
-                        sym = [k for k, v in tickers_map.items() if v == col][0]
+                    # df.columns içindeki sembol sırasına göre ağırlık (w) ile çarp
+                    for idx, sym in enumerate(df.columns):
                         s_score = sentiment_scores.get(sym, 0)
                         sentiment_impact += w[idx] * s_score
                 
@@ -319,6 +358,7 @@ if btn_run:
             net_return_robo = money * robo_ret_pct
             total_robo = money + net_return_robo
             
+            # --- SONUÇ GÖRÜNTÜLEME ---
             c1, c2 = st.columns(2)
             c1.info(f"🏦 **{bank_label}**")
             c1.metric("Garanti Tutar", f"{format_tl(total_bank)} TL", f"+{format_tl(net_return_bank)} TL")
@@ -329,16 +369,19 @@ if btn_run:
             
             st.markdown("---")
             
+            # Haber Raporu
             if use_sentiment:
                 with st.expander("📰 Piyasa Duygu Raporu", expanded=True):
                     st.caption("🟢: Olumlu (>0.05) | 🔴: Olumsuz (<-0.05) | ⚪: Nötr")
                     st.divider()
                     cols = st.columns(4) 
-                    relevant_assets = [k for k in sentiment_scores.keys() if tickers_map[k] in df.columns]
+                    # Sadece df'de var olan ve analiz edilmiş sembolleri göster
+                    relevant_assets = [s for s in sentiment_scores.keys() if s in df.columns]
+                    
                     for i, sym in enumerate(relevant_assets):
                         col_idx = i % 4
                         score = sentiment_scores[sym]
-                        name = tickers_map[sym]
+                        name = tickers_map.get(sym, sym)
                         if score > 0.05: icon = "🟢"; color="green"
                         elif score < -0.05: icon = "🔴"; color="red"
                         else: icon = "⚪"; color="gray"
@@ -346,6 +389,7 @@ if btn_run:
                             st.markdown(f"**{name}**")
                             st.markdown(f":{color}[{icon}] ({score:.2f})")
 
+            # Grafikler
             tab1, tab2 = st.tabs(["📈 Kârlılık", "🍰 Detaylı Kazanç Tablosu"])
             with tab1:
                 fig_bar = go.Figure(data=[
@@ -354,20 +398,24 @@ if btn_run:
                 ])
                 st.plotly_chart(fig_bar, use_container_width=True)
             with tab2:
-                portfolio = sorted(zip(df.columns, best_weights), key=lambda x:x[1], reverse=True)
-                labels = [p[0] for p in portfolio if p[1] > 0.01]
-                values = [p[1] for p in portfolio if p[1] > 0.01]
+                # df.columns sembolleri tutuyor, best_weights ağırlıkları
+                # İsimleri göstermek için map kullanalım
+                asset_names = [tickers_map.get(sym, sym) for sym in df.columns]
+                
+                portfolio = sorted(zip(asset_names, df.columns, best_weights), key=lambda x:x[2], reverse=True)
+                
+                labels = [p[0] for p in portfolio if p[2] > 0.01]
+                values = [p[2] for p in portfolio if p[2] > 0.01]
+                
                 c_pie, c_list = st.columns([1, 1.5]) 
                 c_pie.plotly_chart(px.pie(values=values, names=labels, hole=0.4), use_container_width=True)
                 
                 with c_list:
                     st.caption("🔥: Pozitif Haber | ❄️: Negatif Haber | ➖: Nötr")
                     final_data = []
-                    for asset, w in portfolio:
+                    for name, sym, w in portfolio:
                         if w < 0.01: continue
-                        s_score = 0
-                        for k,v in tickers_map.items(): 
-                            if v == asset: s_score = sentiment_scores.get(k, 0)
+                        s_score = sentiment_scores.get(sym, 0)
                         
                         trend = "🔥" if s_score > 0.05 else "❄️" if s_score < -0.05 else "➖"
                         
@@ -377,7 +425,7 @@ if btn_run:
                         toplam = yatirilan + kazanc
                         
                         final_data.append({
-                            "Varlık": f"{asset} {trend}", 
+                            "Varlık": f"{name} {trend}", 
                             "Oran": f"%{w*100:.1f}", 
                             "Yatırılan Para": f"{format_tl(yatirilan)} TL", 
                             "Tahmini Kâr": f"+{format_tl(kazanc)} TL",
@@ -386,4 +434,6 @@ if btn_run:
                     st.dataframe(pd.DataFrame(final_data), hide_index=True)
 
         except Exception as e:
-            st.error(f"Hata: {e}")
+            st.error(f"Hata Oluştu: {e}")
+            # Hata ayıklama için (gerekirse açın)
+            # st.write(e)
