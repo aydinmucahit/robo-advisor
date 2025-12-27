@@ -49,7 +49,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # 🏦 3. VARLIK HAVUZLARI
 # ==========================================
 
-# A. SABİT VARLIKLAR
+# A. SABİT VARLIKLAR (Semboller Yahoo Finance uyumlu olmalı)
 BASE_ASSETS = [
     {"symbol": "TRY=X", "name": "DOLAR (USD)", "cat": "Döviz", "halal": True, "search_term": "USDTRY currency"},
     {"symbol": "EURTRY=X", "name": "EURO (EUR)", "cat": "Döviz", "halal": True, "search_term": "EURTRY currency"},
@@ -202,16 +202,22 @@ if btn_run:
         filtered_pool = [s for s in pool if (s['halal'] if is_halal else True)]
         tickers = {s['symbol']: s['name'] for s in filtered_pool}
         try:
-            # Sadece 'Close' verisini çek
-            data = yf.download(list(tickers.keys()), period="6mo", progress=False)
+            # yfinance MultiIndex sorununu çözmek için auto_adjust=True
+            data = yf.download(list(tickers.keys()), period="6mo", progress=False, auto_adjust=True)
             
-            # Veri formatı kontrolü (MultiIndex veya Single)
+            # Veri Formatını Düzelt (Close sütununu bul)
             if isinstance(data.columns, pd.MultiIndex):
-                if 'Close' in data.columns.levels[0]:
+                try:
                     data = data['Close']
+                except KeyError:
+                    # Bazen Close yerine başka isimle gelir, tüm tabloyu al
+                    pass
             elif 'Close' in data.columns:
                 data = data[['Close']]
-                
+
+            if data.empty or data.shape[1] == 0:
+                return []
+
             if "Koruyucu" in risk_choice:
                 metric = data.pct_change().std()
                 top_3 = metric.sort_values(ascending=True).head(3).index.tolist()
@@ -250,7 +256,7 @@ if btn_run:
             status.update(label="✅ Kripto Taraması Bitti", state="complete", expanded=False)
 
     if len(final_candidates) < 1:
-        st.error("⚠️ Yeterli varlık bulunamadı. Lütfen seçimlerinizi kontrol edin.")
+        st.error("⚠️ Hiçbir varlık seçilemedi. Lütfen en az bir kategori seçin.")
         st.stop()
         
     # --- HABER ANALİZİ ---
@@ -266,111 +272,120 @@ if btn_run:
                     sentiment_scores[cand['symbol']] = 0
             status.update(label="✅ Duygu Analizi Tamamlandı!", state="complete", expanded=False)
 
-    # --- MARKOWITZ OPTİMİZASYONU (ÇÖKME ÖNLEYİCİLİ) ---
+    # --- MARKOWITZ OPTİMİZASYONU (KESİN ÇÖZÜM) ---
     with st.spinner('Portföy Optimize Ediliyor...'):
         try:
             tickers_map = {a['symbol']: a['name'] for a in final_candidates}
             
-            # Veriyi indir
-            raw_data = yf.download(list(tickers_map.keys()), period="1y", progress=False)
+            # 1. Veriyi İndir
+            raw_data = yf.download(list(tickers_map.keys()), period="1y", progress=False, auto_adjust=True)
             
-            # 🛡️ VERİ KONTROLÜ VE TEMİZLİK
+            # 2. Veri Yapısını Düzelt (Flatten MultiIndex)
             df = None
-            if isinstance(raw_data, pd.DataFrame):
-                # Veri boş mu?
-                if raw_data.empty:
-                    st.error("⚠️ Yahoo Finance'den veri çekilemedi. (Seçilen emtialar için piyasa kapalı olabilir). Lütfen Borsa veya Kripto ekleyerek deneyin.")
-                    st.stop()
-                
-                # MultiIndex Düzeltme ('Close' verisini al)
+            if not raw_data.empty:
                 if isinstance(raw_data.columns, pd.MultiIndex):
-                    if 'Close' in raw_data.columns.levels[0]:
+                    try:
                         df = raw_data['Close']
-                    else:
-                        # Bazen sadece 'Adj Close' gelir
-                        df = raw_data
-                elif 'Close' in raw_data.columns:
-                    df = raw_data[['Close']]
+                    except KeyError:
+                        df = raw_data # Close yoksa direkt al
                 else:
-                    df = raw_data
+                     if 'Close' in raw_data.columns:
+                         df = raw_data[['Close']]
+                     else:
+                         df = raw_data
             
-            # Seçilen sembollerle, gelen veriyi eşleştir (Olmayanları at)
-            # Bu, (2,) vs (0,) hatasının asıl ilacıdır.
+            # 3. Veri Yoksa Durdur
+            if df is None or df.empty or df.shape[1] == 0:
+                st.error("⚠️ Yahoo Finance'den fiyat verisi alınamadı. (Seçilen varlıklar için piyasa kapalı veya veri eksik). Lütfen Borsa veya Kripto ekleyerek tekrar deneyin.")
+                st.stop()
+                
+            # 4. Sütun Eşleştirme (Sadece map'te olan ve verisi gelenleri al)
+            # Bu adım, seçilen ama verisi gelmeyen (hayalet) varlıkları temizler
             valid_cols = [c for c in df.columns if c in tickers_map.keys()]
             
+            # 5. Kritik Kontrol: Eğer temizlik sonrası el boş kalırsa
             if len(valid_cols) == 0:
-                 st.error("⚠️ Seçilen varlıklar (Örn: Altın/Gümüş) için anlık fiyat verisi alınamadı. Borsa veya Kripto ekleyerek tekrar deneyin.")
+                 st.error("⚠️ Seçilen varlıkların fiyat verisine ulaşılamadı. (Özellikle Emtialarda Yahoo bazen anlık veri vermeyebilir).")
                  st.stop()
             
-            # Sadece geçerli sütunları al
             df = df[valid_cols]
-            
-            # Boş satırları temizle
             df.dropna(axis=0, how='any', inplace=True) 
 
             if df.empty:
-                st.error("⚠️ Tarihsel veri yetersiz olduğu için analiz yapılamıyor.")
+                st.error("⚠️ Yeterli tarihsel veri bulunamadı.")
                 st.stop()
                 
-            # --- MATEMATİKSEL İŞLEMLER ---
-            # İsim haritasını güncelle (Sadece verisi gelenler kalsın)
-            # Ama optimizasyon için sütunlar (semboller) lazım
-            
+            # --- MATEMATİKSEL HESAPLAMALAR ---
             returns = np.log(df / df.shift(1))
             returns.replace([np.inf, -np.inf], np.nan, inplace=True)
             returns.dropna(inplace=True)
 
             if returns.empty:
-                 st.error("⚠️ Getiri hesaplanamadı (Veri seti çok kısa).")
+                 st.error("⚠️ Getiri hesaplanamadı.")
                  st.stop()
 
             trading_days = int(252 * (months / 12))
             mean_ret = returns.mean() * trading_days
-            cov = returns.cov() * trading_days
             
-            num_ports = 3000
-            best_score = -float('inf')
-            best_weights = []
+            # -------------- TEK VARLIK VE ÇOKLU VARLIK AYRIMI --------------
             
-            if "Koruyucu" in risk_choice: max_w = 0.40 
-            elif "Dengeli" in risk_choice: max_w = 0.60 
-            else: max_w = 1.00 
+            # Eğer sadece 1 varlığımız kaldıysa (Diğerleri elendiyse veya tek seçildiyse)
+            if len(df.columns) == 1:
+                best_weights = np.array([1.0]) # Para %100 buna gider
+                robo_ret_pct = mean_ret.values[0]
+                # Tek varlık riski = Standart sapma
+                robo_risk_pct = returns.std().values[0] * np.sqrt(trading_days)
+            
+            # Eğer birden çok varlık varsa Simülasyon yap
+            else:
+                cov = returns.cov() * trading_days
+                num_ports = 3000
+                best_score = -float('inf')
+                best_weights = []
+                
+                if "Koruyucu" in risk_choice: max_w = 0.40 
+                elif "Dengeli" in risk_choice: max_w = 0.60 
+                else: max_w = 1.00 
 
-            for _ in range(num_ports):
-                w = np.random.random(len(df.columns))
-                w /= w.sum()
+                for _ in range(num_ports):
+                    w = np.random.random(len(df.columns))
+                    w /= w.sum()
+                    
+                    if np.max(w) > max_w: continue 
+                    
+                    port_ret = np.sum(mean_ret * w)
+                    port_vol = np.sqrt(np.dot(w.T, np.dot(cov, w)))
+                    
+                    if "Koruyucu" in risk_choice: math_score = -port_vol 
+                    elif "Büyüme" in risk_choice: math_score = port_ret
+                    else: math_score = port_ret / port_vol if port_vol > 0 else 0
+                    
+                    sentiment_impact = 0
+                    if use_sentiment:
+                        for idx, sym in enumerate(df.columns):
+                            s_score = sentiment_scores.get(sym, 0)
+                            sentiment_impact += w[idx] * s_score
+                    
+                    impact_factor = 0.5 if "Büyüme" in risk_choice else 0.2
+                    final_score = math_score + (sentiment_impact * impact_factor)
+                    
+                    if final_score > best_score:
+                        best_score = final_score
+                        best_weights = w
                 
-                if np.max(w) > max_w: continue 
+                # Eğer kısıtlar yüzünden hiç ağırlık bulamazsa eşit dağıt
+                if len(best_weights) == 0:
+                     best_weights = np.full(len(df.columns), 1.0/len(df.columns))
                 
-                port_ret = np.sum(mean_ret * w)
-                port_vol = np.sqrt(np.dot(w.T, np.dot(cov, w)))
-                
-                if "Koruyucu" in risk_choice: math_score = -port_vol 
-                elif "Büyüme" in risk_choice: math_score = port_ret
-                else: math_score = port_ret / port_vol if port_vol > 0 else 0
-                
-                # Haber Puanı Etkisi
-                sentiment_impact = 0
-                if use_sentiment:
-                    # Sadece eldeki (verisi olan) sütunlar için hesapla
-                    for idx, sym in enumerate(df.columns):
-                        s_score = sentiment_scores.get(sym, 0)
-                        sentiment_impact += w[idx] * s_score
-                
-                impact_factor = 0.5 if "Büyüme" in risk_choice else 0.2
-                final_score = math_score + (sentiment_impact * impact_factor)
-                
-                if final_score > best_score:
-                    best_score = final_score
-                    best_weights = w
+                robo_ret_pct = np.sum(mean_ret * best_weights)
+                robo_risk_pct = np.sqrt(np.dot(best_weights.T, np.dot(cov, best_weights)))
             
-            robo_ret_pct = np.sum(mean_ret * best_weights)
-            robo_risk_pct = np.sqrt(np.dot(best_weights.T, np.dot(cov, best_weights)))
+            # ----------------------------------------------------------------
             
             net_return_robo = money * robo_ret_pct
             total_robo = money + net_return_robo
             
-            # --- SONUÇLAR ---
+            # --- SONUÇLARI GÖSTER ---
             c1, c2 = st.columns(2)
             c1.info(f"🏦 **{bank_label}**")
             c1.metric("Garanti Tutar", f"{format_tl(total_bank)} TL", f"+{format_tl(net_return_bank)} TL")
@@ -381,13 +396,11 @@ if btn_run:
             
             st.markdown("---")
             
-            # Haber Raporu
             if use_sentiment:
                 with st.expander("📰 Piyasa Duygu Raporu", expanded=True):
                     st.caption("🟢: Olumlu (>0.05) | 🔴: Olumsuz (<-0.05) | ⚪: Nötr")
                     st.divider()
                     cols = st.columns(4) 
-                    # Sadece verisi olanları göster
                     relevant_assets = [s for s in sentiment_scores.keys() if s in df.columns]
                     for i, sym in enumerate(relevant_assets):
                         col_idx = i % 4
@@ -400,7 +413,6 @@ if btn_run:
                             st.markdown(f"**{name}**")
                             st.markdown(f":{color}[{icon}] ({score:.2f})")
 
-            # Grafikler
             tab1, tab2 = st.tabs(["📈 Kârlılık", "🍰 Detaylı Kazanç Tablosu"])
             with tab1:
                 fig_bar = go.Figure(data=[
@@ -409,10 +421,13 @@ if btn_run:
                 ])
                 st.plotly_chart(fig_bar, use_container_width=True)
             with tab2:
-                # İsimleri haritadan çek
                 asset_names = [tickers_map.get(sym, sym) for sym in df.columns]
                 
-                portfolio = sorted(zip(asset_names, df.columns, best_weights), key=lambda x:x[2], reverse=True)
+                # Tek varlık ise ağırlık %100
+                if len(df.columns) == 1:
+                    portfolio = [(asset_names[0], df.columns[0], 1.0)]
+                else:
+                    portfolio = sorted(zip(asset_names, df.columns, best_weights), key=lambda x:x[2], reverse=True)
                 
                 labels = [p[0] for p in portfolio if p[2] > 0.01]
                 values = [p[2] for p in portfolio if p[2] > 0.01]
