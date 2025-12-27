@@ -202,13 +202,23 @@ if btn_run:
         filtered_pool = [s for s in pool if (s['halal'] if is_halal else True)]
         tickers = {s['symbol']: s['name'] for s in filtered_pool}
         try:
-            data = yf.download(list(tickers.keys()), period="6mo", progress=False)['Close']
+            # Sadece 'Close' verisini çek
+            data = yf.download(list(tickers.keys()), period="6mo", progress=False)
+            
+            # Veri formatı kontrolü (MultiIndex veya Single)
+            if isinstance(data.columns, pd.MultiIndex):
+                if 'Close' in data.columns.levels[0]:
+                    data = data['Close']
+            elif 'Close' in data.columns:
+                data = data[['Close']]
+                
             if "Koruyucu" in risk_choice:
                 metric = data.pct_change().std()
                 top_3 = metric.sort_values(ascending=True).head(3).index.tolist()
             else:
                 metric = data.pct_change().mean()
                 top_3 = metric.sort_values(ascending=False).head(3).index.tolist()
+            
             selected_assets = []
             for sym in top_3:
                 obj = next((item for item in filtered_pool if item["symbol"] == sym), None)
@@ -256,7 +266,7 @@ if btn_run:
                     sentiment_scores[cand['symbol']] = 0
             status.update(label="✅ Duygu Analizi Tamamlandı!", state="complete", expanded=False)
 
-    # --- MARKOWITZ OPTİMİZASYONU (DÜZELTİLMİŞ) ---
+    # --- MARKOWITZ OPTİMİZASYONU (ÇÖKME ÖNLEYİCİLİ) ---
     with st.spinner('Portföy Optimize Ediliyor...'):
         try:
             tickers_map = {a['symbol']: a['name'] for a in final_candidates}
@@ -264,50 +274,54 @@ if btn_run:
             # Veriyi indir
             raw_data = yf.download(list(tickers_map.keys()), period="1y", progress=False)
             
-            # Veri yapısını kontrol et (MultiIndex mi yoksa tekil mi)
+            # 🛡️ VERİ KONTROLÜ VE TEMİZLİK
+            df = None
             if isinstance(raw_data, pd.DataFrame):
+                # Veri boş mu?
+                if raw_data.empty:
+                    st.error("⚠️ Yahoo Finance'den veri çekilemedi. (Seçilen emtialar için piyasa kapalı olabilir). Lütfen Borsa veya Kripto ekleyerek deneyin.")
+                    st.stop()
+                
+                # MultiIndex Düzeltme ('Close' verisini al)
                 if isinstance(raw_data.columns, pd.MultiIndex):
-                    # Eğer 'Close' ana başlığı varsa onu al
                     if 'Close' in raw_data.columns.levels[0]:
                         df = raw_data['Close']
                     else:
+                        # Bazen sadece 'Adj Close' gelir
                         df = raw_data
                 elif 'Close' in raw_data.columns:
-                    df = raw_data[['Close']] # Tek sütunlu DF olarak al
+                    df = raw_data[['Close']]
                 else:
                     df = raw_data
-            else:
-                st.error("Veri formatı hatası.")
-                st.stop()
-
-            # --- Sütun İsimlerini Temizle ve Eşleştir ---
-            # Yahoo bazen sembolü değiştirerek getirir (örn: 'GC=F' -> 'GC=F' olarak kalır mı?)
-            # Elimizdeki tickers_map ile df.columns arasındaki kesişimi bulalım.
+            
+            # Seçilen sembollerle, gelen veriyi eşleştir (Olmayanları at)
+            # Bu, (2,) vs (0,) hatasının asıl ilacıdır.
             valid_cols = [c for c in df.columns if c in tickers_map.keys()]
             
             if len(valid_cols) == 0:
-                st.error("⚠️ Seçilen varlıklar için Yahoo Finance'den geçerli fiyat verisi alınamadı. Lütfen farklı varlıklar seçin veya Borsa/Kripto ekleyin.")
-                st.stop()
-                
+                 st.error("⚠️ Seçilen varlıklar (Örn: Altın/Gümüş) için anlık fiyat verisi alınamadı. Borsa veya Kripto ekleyerek tekrar deneyin.")
+                 st.stop()
+            
+            # Sadece geçerli sütunları al
             df = df[valid_cols]
             
-            # Boş verileri temizle
-            df.dropna(axis=0, how='any', inplace=True) # Satırda boşluk varsa o günü sil
-            
-            if df.empty:
-                st.error("⚠️ Veri temizliği sonrası eldeki veri seti boş kaldı. Tarihsel veri yetersiz.")
-                st.stop()
+            # Boş satırları temizle
+            df.dropna(axis=0, how='any', inplace=True) 
 
-            # İsimleri güncelle (Sembol -> İsim)
-            # Ama optimizasyon için sembolleri de tutmamız lazım.
-            # df sütunları şu an sembol (örn: 'GC=F').
+            if df.empty:
+                st.error("⚠️ Tarihsel veri yetersiz olduğu için analiz yapılamıyor.")
+                st.stop()
+                
+            # --- MATEMATİKSEL İŞLEMLER ---
+            # İsim haritasını güncelle (Sadece verisi gelenler kalsın)
+            # Ama optimizasyon için sütunlar (semboller) lazım
             
             returns = np.log(df / df.shift(1))
             returns.replace([np.inf, -np.inf], np.nan, inplace=True)
             returns.dropna(inplace=True)
 
             if returns.empty:
-                 st.error("⚠️ Yeterli tarihsel veri olmadığı için optimizasyon yapılamadı.")
+                 st.error("⚠️ Getiri hesaplanamadı (Veri seti çok kısa).")
                  st.stop()
 
             trading_days = int(252 * (months / 12))
@@ -318,12 +332,10 @@ if btn_run:
             best_score = -float('inf')
             best_weights = []
             
-            # Dinamik Kısıt
             if "Koruyucu" in risk_choice: max_w = 0.40 
             elif "Dengeli" in risk_choice: max_w = 0.60 
             else: max_w = 1.00 
 
-            # Simülasyon
             for _ in range(num_ports):
                 w = np.random.random(len(df.columns))
                 w /= w.sum()
@@ -337,10 +349,10 @@ if btn_run:
                 elif "Büyüme" in risk_choice: math_score = port_ret
                 else: math_score = port_ret / port_vol if port_vol > 0 else 0
                 
-                # Haber Puanı Etkisi (DÜZELTİLMİŞ DÖNGÜ)
+                # Haber Puanı Etkisi
                 sentiment_impact = 0
                 if use_sentiment:
-                    # df.columns içindeki sembol sırasına göre ağırlık (w) ile çarp
+                    # Sadece eldeki (verisi olan) sütunlar için hesapla
                     for idx, sym in enumerate(df.columns):
                         s_score = sentiment_scores.get(sym, 0)
                         sentiment_impact += w[idx] * s_score
@@ -358,7 +370,7 @@ if btn_run:
             net_return_robo = money * robo_ret_pct
             total_robo = money + net_return_robo
             
-            # --- SONUÇ GÖRÜNTÜLEME ---
+            # --- SONUÇLAR ---
             c1, c2 = st.columns(2)
             c1.info(f"🏦 **{bank_label}**")
             c1.metric("Garanti Tutar", f"{format_tl(total_bank)} TL", f"+{format_tl(net_return_bank)} TL")
@@ -375,9 +387,8 @@ if btn_run:
                     st.caption("🟢: Olumlu (>0.05) | 🔴: Olumsuz (<-0.05) | ⚪: Nötr")
                     st.divider()
                     cols = st.columns(4) 
-                    # Sadece df'de var olan ve analiz edilmiş sembolleri göster
+                    # Sadece verisi olanları göster
                     relevant_assets = [s for s in sentiment_scores.keys() if s in df.columns]
-                    
                     for i, sym in enumerate(relevant_assets):
                         col_idx = i % 4
                         score = sentiment_scores[sym]
@@ -398,8 +409,7 @@ if btn_run:
                 ])
                 st.plotly_chart(fig_bar, use_container_width=True)
             with tab2:
-                # df.columns sembolleri tutuyor, best_weights ağırlıkları
-                # İsimleri göstermek için map kullanalım
+                # İsimleri haritadan çek
                 asset_names = [tickers_map.get(sym, sym) for sym in df.columns]
                 
                 portfolio = sorted(zip(asset_names, df.columns, best_weights), key=lambda x:x[2], reverse=True)
@@ -416,7 +426,6 @@ if btn_run:
                     for name, sym, w in portfolio:
                         if w < 0.01: continue
                         s_score = sentiment_scores.get(sym, 0)
-                        
                         trend = "🔥" if s_score > 0.05 else "❄️" if s_score < -0.05 else "➖"
                         
                         yatirilan = money * w
@@ -435,5 +444,3 @@ if btn_run:
 
         except Exception as e:
             st.error(f"Hata Oluştu: {e}")
-            # Hata ayıklama için (gerekirse açın)
-            # st.write(e)
